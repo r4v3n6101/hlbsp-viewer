@@ -1,0 +1,6 @@
+[package]
+name = "hlbsp2obj"
+version = "0.0.8"
+authors = ["r4v3n6101 <raven6107@gmail.com>"]
+
+[dependencies]
