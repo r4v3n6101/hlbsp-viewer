@@ -21,7 +21,7 @@ pub const LUMP_SURFEDGES: usize = 13;
 pub const LUMP_MODELS: usize = 14;
 
 #[repr(C)]
-pub struct Header { pub version: i32, pub  lumps: [Lump; HEADER_LUMPS] }
+pub struct Header { pub version: i32, pub lumps: [Lump; HEADER_LUMPS] }
 
 #[repr(C)]
 pub struct Lump { pub offset: i32, pub length: i32 }
@@ -49,9 +49,6 @@ pub struct TexInfo {
     pub imip: u32,
     pub nflag: u32,
 }
-
-#[repr(C)]
-pub struct TextureHeader { pub mip_textures: u32 } // TODO : Remove
 
 pub type Vertices = Vec<Vec3>;
 

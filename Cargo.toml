@@ -1,8 +1,4 @@
 [package]
 name = "hlbsp2obj"
-version = "0.0.8"
+version = "0.2.0"
 authors = ["r4v3n6101 <raven6107@gmail.com>"]
-
-[dependencies.image]
-features = ["png"]
-version = "*"
