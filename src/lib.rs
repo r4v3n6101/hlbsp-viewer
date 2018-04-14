@@ -22,6 +22,7 @@ pub fn read_struct<T>(buf: &[u8]) -> T {
 pub fn read_mul_structs<T>(buf: &[u8]) -> Vec<T> {
     use std::mem::{size_of, uninitialized};
     use std::slice::from_raw_parts_mut;
+
     let size = size_of::<T>();
     let count = buf.len() / size;
 

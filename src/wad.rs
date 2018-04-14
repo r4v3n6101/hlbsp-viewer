@@ -1,7 +1,6 @@
 use super::*;
 
 const MAX_NAME: usize = 16;
-pub const TEXTURE_TYPE: i8 = 67;
 
 #[repr(C)]
 struct Header {
@@ -23,6 +22,7 @@ pub struct DirEntry {
 
 pub fn entries(buf: &[u8]) -> Vec<DirEntry> {
     use std::mem::size_of;
+
     let header: Header = read_struct(&buf);
     let off = header.dir_offset as usize;
     let len = header.num_dir as usize * size_of::<DirEntry>();
