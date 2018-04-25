@@ -1,3 +1,5 @@
+extern crate image;
+
 pub mod bsp;
 pub mod wad;
 pub mod texture;

@@ -1,4 +1,4 @@
-use super::*;
+use super::{read_mul_structs, read_struct};
 
 const MAX_NAME: usize = 16;
 
