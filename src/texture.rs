@@ -1,4 +1,8 @@
-pub use std::collections::HashMap;
+use maxrects::place_rect;
+use read_struct;
+pub use std::{collections::HashMap, path::Path};
+use std::{fs::File, io::{BufReader, Read}};
+use wad::{entries, read_name};
 
 const MAX_NAME: usize = 16;
 const MIP_TEXTURES: usize = 4;
@@ -59,19 +63,6 @@ impl MipTex {
 #[derive(Clone, Debug)]
 pub struct Rect { pub x: u32, pub y: u32, pub width: u32, pub height: u32 }
 
-impl Rect {
-    pub fn is_contained_in(&self, b: &Rect) -> bool {
-        self.x >= b.x && self.y >= b.y
-            && self.x + self.width <= b.x + b.width
-            && self.y + self.height <= b.y + b.height
-    }
-
-    pub fn intersects(&self, b: &Rect) -> bool {
-        self.x < b.x + b.width && self.x + self.width > b.x &&
-            self.y < b.y + b.height && self.y + self.height > b.y
-    }
-}
-
 pub struct TextureAtlas { pub texture: Texture, pub slots: HashMap<String, Rect> }
 
 impl TextureAtlas {
@@ -109,11 +100,11 @@ pub fn build_atlas(textures: HashMap<String, &Texture>) -> TextureAtlas {
     return TextureAtlas { texture, slots };
 }
 
-// Very expensive function!
+// Expensive function!
 fn calculate_size(textures: &HashMap<String, &Texture>) -> (u32, u32) {
     let mut free_rects = vec![];
-    let mut width = 256;
-    let mut height = 256;
+    let mut width = 16;
+    let mut height = 16;
 
     loop {
         free_rects.push(Rect { width, height, x: 0, y: 0 });
@@ -122,9 +113,9 @@ fn calculate_size(textures: &HashMap<String, &Texture>) -> (u32, u32) {
             if let None = place_rect(&mut free_rects, tex.width, tex.height) {
                 free_rects.clear();
                 if width == height {
-                    width *= 2;
+                    width <<= 1;
                 } else {
-                    height *= 2;
+                    height <<= 1;
                 }
                 found = false;
                 break;
@@ -136,109 +127,32 @@ fn calculate_size(textures: &HashMap<String, &Texture>) -> (u32, u32) {
     return (width, height);
 }
 
-fn place_rect(free: &mut Vec<Rect>, width: u32, height: u32) -> Option<Rect> {
-    let rect = find_best_area(&free, width, height);
-    if let Some(ref x) = rect {
-        update_free_nodes(free, &x);
+pub fn read_textures(path: &Path, mip_level: usize) -> HashMap<String, Texture> {
+    fn read_file(path: &Path, mip_level: usize) -> HashMap<String, Texture> {
+        let wad_file = File::open(path).unwrap();
+        let size = wad_file.metadata().unwrap().len() + 1;
+        let mut wad: Vec<u8> = Vec::with_capacity(size as usize);
+
+        let mut buf_reader = BufReader::new(wad_file);
+        buf_reader.read_to_end(&mut wad).unwrap();
+
+        entries(&wad).iter().map(|entry| {
+            let tex_offset = entry.file_pos as usize;
+            let tex: MipTex = read_struct(&wad[tex_offset..]);
+
+            let col_table = tex.get_color_table(&wad[tex_offset..]);
+            let texture = tex.read_texture(&wad[tex_offset..], col_table, mip_level);
+
+            let name = read_name(tex.name);
+            (name, texture)
+        }).collect()
     }
-    return rect;
-}
-
-fn update_free_nodes(free: &mut Vec<Rect>, rect: &Rect) {
-    let mut size = free.len();
-    let mut i = 0;
-    while i < size {
-        let free_rect = free[i].clone();
-        if free_rect.intersects(rect) {
-            free.remove(i);
-            split_free_node(free, free_rect, rect);
-            size -= 1;
-        } else {
-            i += 1;
-        }
+    if path.is_file() {
+        read_file(path, mip_level)
+    } else {
+        path.read_dir().expect("Error while reading dir").flat_map(|entry| {
+            let entry = entry.expect("Error while reading dir entry");
+            read_file(&entry.path(), mip_level)
+        }).collect()
     }
-    prune_free_list(free);
-}
-
-fn split_free_node(free: &mut Vec<Rect>, free_node: Rect, used: &Rect) {
-    if used.x < free_node.x + free_node.width && used.x + used.width > free_node.x {
-        // New node at the top side of the used node.
-        if used.y > free_node.y && used.y < free_node.y + free_node.height {
-            let mut new_node = free_node.clone();
-            new_node.height = used.y - new_node.y;
-            free.push(new_node);
-        }
-
-        // New node at the bottom side of the used node.
-        if used.y + used.height < free_node.y + free_node.height {
-            let mut new_node = free_node.clone();
-            new_node.y = used.y + used.height;
-            new_node.height = free_node.y + free_node.height - (used.y + used.height);
-            free.push(new_node);
-        }
-    }
-    if used.y < free_node.y + free_node.height && used.y + used.height > free_node.y {
-        // New node at the left side of the used node.
-        if used.x > free_node.x && used.x < free_node.x + free_node.width {
-            let mut new_node = free_node.clone();
-            new_node.width = used.x - new_node.x;
-            free.push(new_node);
-        }
-
-        // New node at the right side of the used node.
-        if used.x + used.width < free_node.x + free_node.width {
-            let mut new_node = free_node.clone();
-            new_node.x = used.x + used.width;
-            new_node.width = free_node.x + free_node.width - (used.x + used.width);
-            free.push(new_node);
-        }
-    }
-}
-
-fn prune_free_list(free: &mut Vec<Rect>) {
-    let mut i = 0;
-    while i < free.len() {
-        let mut j = i + 1;
-        while j < free.len() {
-            if free[i].is_contained_in(&free[j]) {
-                free.remove(i);
-                i -= 1;
-                break;
-            }
-            if free[j].is_contained_in(&free[i]) {
-                free.remove(j);
-            } else {
-                j += 1;
-            }
-        }
-        i += 1;
-    }
-}
-
-fn find_best_area(free: &Vec<Rect>, width: u32, height: u32) -> Option<Rect> {
-    let max_u32 = u32::max_value();
-
-    let mut best_area_fit = max_u32;
-    let mut best_short_side_fit = max_u32;
-
-    let mut x = 0;
-    let mut y = 0;
-    for rect in free {
-        if width <= rect.width && height <= rect.height {
-            let area_fit = rect.width * rect.height - width * height;
-            let leftover_horiz = rect.width - width;
-            let leftover_vert = rect.height - height;
-            let short_side_fit = leftover_horiz.min(leftover_vert);
-
-            if area_fit < best_area_fit ||
-                (area_fit == best_area_fit && short_side_fit < best_short_side_fit) {
-                best_area_fit = area_fit;
-                best_short_side_fit = short_side_fit;
-
-                x = rect.x;
-                y = rect.y;
-            }
-        }
-    }
-    return if best_area_fit == max_u32 { None } else { Some(Rect { x, y, width, height }) };
 }

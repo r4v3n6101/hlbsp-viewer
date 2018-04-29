@@ -1,26 +1,8 @@
 extern crate hlbsp2obj;
 extern crate image;
 
-use hlbsp2obj::{
-    bsp::*,
-    read_struct,
-    texture::{build_atlas, HashMap, MipTex, Texture, TextureAtlas},
-    wad::{
-        entries,
-        read_name,
-    },
-};
-use std::{
-    env::args,
-    fs::*,
-    io::{
-        BufReader,
-        BufWriter,
-        Read,
-        Write,
-    },
-    path::*,
-};
+use hlbsp2obj::{bsp::*, read_mul_structs, read_struct, texture::*, wad::*};
+use std::{env::args, fs::*, io::*};
 
 fn main() {
     let bsp_path = args().nth(1).unwrap();
@@ -38,12 +20,8 @@ fn main() {
     let obj_file = File::create(obj_path).unwrap();
     let mut obj_writer = BufWriter::new(obj_file);
 
-    let wad_path = Path::new(&wad_path);
-    let textures: HashMap<String, Texture> = if wad_path.is_dir() {
-        read_wad_dir(wad_path, 0)
-    } else {
-        read_wad(wad_path, 0)
-    };
+    let textures: HashMap<String, Texture> = read_textures(wad_path.as_ref(), 0);
+
     let mut atlas_writer = BufWriter::new(File::create(atlas_path).unwrap());
     write_obj(&mut obj_writer, &mut atlas_writer, &bsp, &textures);
 }
@@ -61,24 +39,60 @@ fn write_obj<W: Write>(
     let edges: Vec<Edge> = header.lumps[LUMP_EDGES].read_array(&bsp);
     let texinfos: Vec<TexInfo> = header.lumps[LUMP_TEXINFO].read_array(&bsp);
 
+    ///////////////////////////////////////////////////////////////////////////////////////////////
     let offset = header.lumps[LUMP_TEXTURES].offset as usize;
     let mip_off: u32 = read_struct(&bsp[offset..]);
-    let offsets: Vec<i32> = read_mul_structs(&bsp[offset + 4..offset + mip_off as usize * 4]);
+    let begin = offset + 4;
+    let offsets: Vec<i32> = read_mul_structs(&bsp[begin..begin + mip_off as usize * 4]);
+
     let mip_texs: Vec<MipTex> =
         offsets.iter().map(|i| read_struct(&bsp[offset + *i as usize..])).collect();
 
     let required_texs: HashMap<String, &Texture> = mip_texs.iter().map(|mip_tex| {
         let name = read_name(mip_tex.name);
-        let tex = wad_textures.get(&name).unwrap();
+        let tex = wad_textures.get(&name).expect(&name);
         (name, tex)
     }).collect();
 
     let atlas = build_atlas(required_texs);
+    let mut tex_coords: Vec<(f32, f32)> = Vec::with_capacity(vertices.len());
+    faces.iter().for_each(|face| {
+        let texinfo = &texinfos[face.texinfo as usize];
+        let tex = &mip_texs[texinfo.imip as usize]; // TODO : Make something with atlas
+        let name = read_name(tex.name);
+        let rect = atlas.slots.get(&name).unwrap();
+        let x = rect.x as f32;
+        let y = rect.y as f32;
+        for i in 0..face.edges {
+            let surfedge_i = face.first_edge + (i as u32);
+            let surfedge = surfedges[surfedge_i as usize];
+            let vert = if surfedge > 0 {
+                edges[surfedge as usize].vertices[0]
+            } else {
+                edges[-surfedge as usize].vertices[1]
+            };
+            let vertex = &vertices[vert as usize];
+            let s = (vertex.dot(&texinfo.vs) + texinfo.fs) / tex.width as f32;
+            let t = (vertex.dot(&texinfo.vt) + texinfo.ft) / tex.height as f32;
+
+            let u = (x + s) / (atlas.texture.width as f32);
+            let v = (y + t) / (atlas.texture.height as f32);
+            println!("{}x{}", s, t);
+            tex_coords.insert(vert as usize, (u, v));
+        }
+    });
+    ///////////////////////////////////////////////////////////////////////////////////////////////
 
     vertices.iter().for_each(|vertex| {
         writeln!(obj_writer, "v {} {} {}", vertex.0, vertex.1, vertex.2).unwrap();
     });
     write!(obj_writer, "\n\n\n").unwrap();
+
+    tex_coords.iter().for_each(|&(u, v)| {
+        writeln!(obj_writer, "vt {} {}", u, v).unwrap();
+    });
+    write!(obj_writer, "\n\n\n").unwrap();
+
     faces.iter().for_each(|face| {
         write!(obj_writer, "f").unwrap();
         for i in 0..face.edges {
@@ -89,41 +103,16 @@ fn write_obj<W: Write>(
             } else {
                 edges[-surfedge as usize].vertices[1]
             };
-            write!(obj_writer, " {}", vert + 1).unwrap();
+            write!(obj_writer, " {}/{}", vert + 1, vert + 1).unwrap();
         }
         writeln!(obj_writer).unwrap();
     });
     obj_writer.flush().unwrap();
     write_atlas(atlas_writer, atlas);
-    // TODO : Add texture support
-}
-
-fn read_wad_dir<P: AsRef<Path>>(path: P, mip_level: usize) -> HashMap<String, Texture> {
-    let dir = read_dir(path).unwrap();
-    dir.flat_map(|entry| read_wad(entry.unwrap().path(), mip_level)).collect()
-}
-
-fn read_wad<P: AsRef<Path>>(path: P, mip_level: usize) -> HashMap<String, Texture> {
-    let wad_file = File::open(path).unwrap();
-    let size = wad_file.metadata().unwrap().len() + 1;
-    let mut wad: Vec<u8> = Vec::with_capacity(size as usize);
-
-    let mut buf_reader = BufReader::new(wad_file);
-    buf_reader.read_to_end(&mut wad).unwrap();
-
-    entries(&wad).iter().map(|entry| {
-        let tex_offset = entry.file_pos as usize;
-        let tex: MipTex = read_struct(&wad[tex_offset..]);
-
-        let col_table = tex.get_color_table(&wad[tex_offset..]);
-        let texture = tex.read_texture(&wad[tex_offset..], col_table, mip_level);
-        let name = read_name(tex.name);
-        (name, texture)
-    }).collect()
 }
 
 fn write_atlas<W: Write>(writer: &mut W, atlas: TextureAtlas) {
-    use image::*;
+    use image::{ImageRgba8, ImageBuffer, Rgba, PNG};
     use std::mem::transmute;
 
     let texture = atlas.texture;

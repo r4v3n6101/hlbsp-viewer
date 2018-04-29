@@ -1,10 +1,17 @@
 pub mod bsp;
 pub mod wad;
 pub mod texture;
+pub mod maxrects;
 
 #[repr(C)]
 #[derive(Debug)]
 pub struct Vec3(pub f32, pub f32, pub f32);
+
+impl Vec3 {
+    pub fn dot(&self, a: &Vec3) -> f32 {
+        self.0 * a.0 + self.1 * a.1 + self.2 * a.2
+    }
+}
 
 pub fn read_struct<T>(buf: &[u8]) -> T {
     use std::mem::{size_of, uninitialized};

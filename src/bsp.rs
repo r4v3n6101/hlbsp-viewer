@@ -1,5 +1,5 @@
-// TODO : If version is 30 then little, otherwise big endianness
-pub use super::{read_mul_structs, read_struct, Vec3};
+use {read_mul_structs, read_struct};
+pub use Vec3;
 
 const HEADER_LUMPS: usize = 15;
 pub const HL_BSP_VERSION: i32 = 30;
