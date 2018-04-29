@@ -1,16 +1,38 @@
 extern crate hlbsp2obj;
 extern crate image;
 
-use hlbsp2obj::{bsp::*, read_mul_structs, read_struct, texture::*, wad::*};
-use std::{env::args, fs::*, io::*};
-use std::path::PathBuf;
+use hlbsp2obj::{
+    bsp::*,
+    read_mul_structs,
+    read_struct,
+    texture::{
+        HashMap,
+        MipTex,
+        read_textures,
+        Texture,
+    },
+    wad::read_name,
+};
+use std::{
+    env::args,
+    fs::{
+        create_dir,
+        File,
+    },
+    io::{
+        BufReader,
+        BufWriter,
+        Read,
+        Write,
+    },
+};
 
 fn main() {
-    let bsp_path = args().nth(1).unwrap();
-    let wad_path = args().nth(2).unwrap();
+    let bsp_path = args().nth(1).expect("bsp path");
+    let wad_path = args().nth(2).expect("wad path");
     let output_path = bsp_path.replace(".bsp", "/");
 
-    let bsp_file = File::open(bsp_path).unwrap();
+    let bsp_file = File::open(bsp_path).expect("bsp file error");
     let size = bsp_file.metadata().unwrap().len() + 1;
     let mut bsp: Vec<u8> = Vec::with_capacity(size as usize);
     let mut buf_reader = BufReader::new(bsp_file);
@@ -18,13 +40,21 @@ fn main() {
 
     let textures: HashMap<String, Texture> = read_textures(wad_path.as_ref(), 0);
 
-    create_dir(&output_path).unwrap();
+    create_dir(&output_path).expect("Error while creating output dir");
     write_obj(&bsp, &textures, output_path);
 }
 
+fn read_mip_tex(tex: &[u8]) -> Vec<MipTex> {
+    let mip_off: u32 = read_struct(tex);
+    let offsets: Vec<i32> = read_mul_structs(&tex[4..4 + mip_off as usize * 4]);
+    return offsets.iter().map(|i| read_struct(&tex[*i as usize..])).collect();
+}
+
 fn write_obj(bsp: &[u8], wad_textures: &HashMap<String, Texture>, output_dir: String) {
-    let obj_file = File::create(output_dir + "out.obj").unwrap();
+    let obj_file = File::create(format!("{}out.obj", output_dir)).expect("obj file error");
     let mut obj_writer = BufWriter::new(obj_file);
+    let mtl_file = File::create(format!("{}out.mtl", output_dir)).expect("mtl file error");
+    let mut mtl_writer = BufWriter::new(mtl_file);
 
     let header: Header = read_struct(&bsp);
     let vertices: Vertices = header.lumps[LUMP_VERTICES].read_array(&bsp);
@@ -32,28 +62,13 @@ fn write_obj(bsp: &[u8], wad_textures: &HashMap<String, Texture>, output_dir: St
     let surfedges: Vec<i32> = header.lumps[LUMP_SURFEDGES].read_array(&bsp);
     let edges: Vec<Edge> = header.lumps[LUMP_EDGES].read_array(&bsp);
     let texinfos: Vec<TexInfo> = header.lumps[LUMP_TEXINFO].read_array(&bsp);
-
-    /*let offset = header.lumps[LUMP_TEXTURES].offset as usize;
-    let mip_off: u32 = read_struct(&bsp[offset..]);
-    let begin = offset + 4;
-    let offsets: Vec<i32> = read_mul_structs(&bsp[begin..begin + mip_off as usize * 4]);
-
-    let mip_texs: Vec<MipTex> =
-        offsets.iter().map(|i| read_struct(&bsp[offset + *i as usize..])).collect();
-
-    let required_texs: HashMap<String, &Texture> = mip_texs.iter().map(|mip_tex| {
-        let name = read_name(mip_tex.name);
-        let tex = wad_textures.get(&name).expect(&name);
-        (name, tex)
-    }).collect();
+    let texs_offset: usize = header.lumps[LUMP_TEXTURES].offset as usize;
+    let miptexs: Vec<MipTex> = read_mip_tex(&bsp[texs_offset..]);
 
     let mut tex_coords: Vec<(f32, f32)> = Vec::with_capacity(vertices.len());
     faces.iter().for_each(|face| {
         let texinfo = &texinfos[face.texinfo as usize];
-        let tex = &mip_texs[texinfo.imip as usize]; // TODO : Make something with atlas
-        let name = read_name(tex.name);
-        let w = tex.width;
-        let h = tex.height;
+        let tex = &miptexs[texinfo.imip as usize];
         for i in 0..face.edges {
             let surfedge_i = face.first_edge + (i as u32);
             let surfedge = surfedges[surfedge_i as usize];
@@ -66,19 +81,19 @@ fn write_obj(bsp: &[u8], wad_textures: &HashMap<String, Texture>, output_dir: St
             let s = (vertex.dot(&texinfo.vs) + texinfo.fs) / tex.width as f32;
             let t = (vertex.dot(&texinfo.vt) + texinfo.ft) / tex.height as f32;
 
-            println!("{}x{}", s, t);
-            tex_coords.insert(vert as usize, (s, t));
+            tex_coords.insert(vert as usize, (s, 1.0 - t));
         }
-    });*/
+    });
 
+    writeln!(obj_writer, "mtllib out.mtl").unwrap();
     vertices.iter().for_each(|vertex| {
         writeln!(obj_writer, "v {} {} {}", vertex.0, vertex.1, vertex.2).unwrap();
     });
     write!(obj_writer, "\n\n\n").unwrap();
 
-    /*tex_coords.iter().for_each(|&(u, v)| {
+    tex_coords.iter().for_each(|&(u, v)| {
         writeln!(obj_writer, "vt {} {}", u, v).unwrap();
-    });*/
+    });
     write!(obj_writer, "\n\n\n").unwrap();
 
     faces.iter().for_each(|face| {
@@ -95,10 +110,25 @@ fn write_obj(bsp: &[u8], wad_textures: &HashMap<String, Texture>, output_dir: St
         }
         writeln!(obj_writer).unwrap();
     });
+
+    miptexs.iter().for_each(|mip_tex| {
+        let name = read_name(mip_tex.name);
+
+        writeln!(mtl_writer, "newmtl {}", name).unwrap();
+        writeln!(mtl_writer, "Tr 1").unwrap();
+        writeln!(mtl_writer, "map_Kd {}.png", name).unwrap();
+
+        let tex = wad_textures.get(&name).expect(format!("Not found {} in wad textures", name));
+        let file = File::create(format!("{}{}.png", output_dir, name)).expect("png file error");
+        let mut buf_writer = BufWriter::new(file);
+        write_image(&mut buf_writer, tex);
+        buf_writer.flush().unwrap();
+    });
     obj_writer.flush().unwrap();
+    mtl_writer.flush().unwrap();
 }
 
-fn write_image<W: Write>(writer: &mut W, image: Texture) {
+fn write_image<W: Write>(writer: &mut W, image: &Texture) {
     use image::{ImageRgba8, ImageBuffer, Rgba, PNG};
     use std::mem::transmute;
 
@@ -108,5 +138,5 @@ fn write_image<W: Write>(writer: &mut W, image: Texture) {
         *pixel = Rgba(color);
     }
 
-    ImageRgba8(img_buffer).save(writer, PNG).unwrap();
+    ImageRgba8(img_buffer).save(writer, PNG).expect("Error while writing image");
 }

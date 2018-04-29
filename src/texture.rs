@@ -61,7 +61,7 @@ impl MipTex {
 
 pub fn read_textures(path: &Path, mip_level: usize) -> HashMap<String, Texture> {
     fn read_file(path: &Path, mip_level: usize) -> HashMap<String, Texture> {
-        let wad_file = File::open(path).unwrap();
+        let wad_file = File::open(path).expect("Error reading wad file");
         let size = wad_file.metadata().unwrap().len() + 1;
         let mut wad: Vec<u8> = Vec::with_capacity(size as usize);
 
