@@ -118,7 +118,7 @@ fn write_obj(bsp: &[u8], wad_textures: &HashMap<String, Texture>, output_dir: St
         writeln!(mtl_writer, "Tr 1").unwrap();
         writeln!(mtl_writer, "map_Kd {}.png", name).unwrap();
 
-        let tex = wad_textures.get(&name).expect(format!("Not found {} in wad textures", name));
+        let tex = wad_textures.get(&name).expect(&format!("Not found {} in wad textures", name));
         let file = File::create(format!("{}{}.png", output_dir, name)).expect("png file error");
         let mut buf_writer = BufWriter::new(file);
         write_image(&mut buf_writer, tex);
