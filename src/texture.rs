@@ -1,4 +1,3 @@
-use maxrects::place_rect;
 use read_struct;
 pub use std::{collections::HashMap, path::Path};
 use std::{fs::File, io::{BufReader, Read}};
@@ -58,73 +57,6 @@ impl MipTex {
         }
         return Texture { width: width as u32, height: height as u32, pixels };
     }
-}
-
-#[derive(Clone, Debug)]
-pub struct Rect { pub x: u32, pub y: u32, pub width: u32, pub height: u32 }
-
-pub struct TextureAtlas { pub texture: Texture, pub slots: HashMap<String, Rect> }
-
-impl TextureAtlas {
-    pub fn occupancy(&self) -> f32 {
-        let total_area: u32 = self.texture.width * self.texture.height;
-        let used_area: u32 = self.slots.iter().map(|(_, rect)| rect.width * rect.height).sum();
-        return used_area as f32 / total_area as f32;
-    }
-}
-
-pub fn build_atlas(textures: HashMap<String, &Texture>) -> TextureAtlas {
-    use std::vec::from_elem;
-
-    let mut slots: HashMap<String, Rect> = HashMap::with_capacity(textures.len());
-    let (width, height) = calculate_size(&textures);
-
-    let mut texture = Texture {
-        width,
-        height,
-        pixels: from_elem(0, (width * height) as usize), // TODO : Temporary, will be vec![0;...]
-    };
-    let mut free_rects = vec![Rect { width, height, x: 0, y: 0 }];
-    for (name, tex) in textures {
-        let w = tex.width;
-        let h = tex.height;
-        if let Some(rect) = place_rect(&mut free_rects, w, h) {
-            for i in 0..w {
-                for j in 0..h {
-                    texture.set(rect.x + i, rect.y + j, tex.get(i, j));
-                }
-            }
-            slots.insert(name, rect);
-        }
-    }
-    return TextureAtlas { texture, slots };
-}
-
-// Expensive function!
-fn calculate_size(textures: &HashMap<String, &Texture>) -> (u32, u32) {
-    let mut free_rects = vec![];
-    let mut width = 16;
-    let mut height = 16;
-
-    loop {
-        free_rects.push(Rect { width, height, x: 0, y: 0 });
-        let mut found = true;
-        for (_, tex) in textures {
-            if let None = place_rect(&mut free_rects, tex.width, tex.height) {
-                free_rects.clear();
-                if width == height {
-                    width <<= 1;
-                } else {
-                    height <<= 1;
-                }
-                found = false;
-                break;
-            }
-        }
-
-        if found { break; }
-    }
-    return (width, height);
 }
 
 pub fn read_textures(path: &Path, mip_level: usize) -> HashMap<String, Texture> {

@@ -1,7 +1,6 @@
 pub mod bsp;
 pub mod wad;
 pub mod texture;
-pub mod maxrects;
 
 #[repr(C)]
 #[derive(Debug)]
