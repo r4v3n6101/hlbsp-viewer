@@ -1,9 +1,7 @@
 /target/
 Cargo.lock
-**/*.rs.bk
-.idea
 *.iml
 *.iws
 *.ipr
-out
-gen
+textures
+gasworks.bsp

@@ -65,6 +65,7 @@ fn write_obj(bsp: &[u8], wad_textures: &HashMap<String, Texture>, output_dir: St
     let texs_offset: usize = header.lumps[LUMP_TEXTURES].offset as usize;
     let miptexs: Vec<MipTex> = read_mip_tex(&bsp[texs_offset..]);
 
+    // TODO : Reduce loops ammount
     let mut tex_coords: Vec<(f32, f32)> = Vec::with_capacity(vertices.len());
     faces.iter().for_each(|face| {
         let texinfo = &texinfos[face.texinfo as usize];
@@ -91,12 +92,15 @@ fn write_obj(bsp: &[u8], wad_textures: &HashMap<String, Texture>, output_dir: St
     });
     write!(obj_writer, "\n\n\n").unwrap();
 
-    tex_coords.iter().for_each(|&(u, v)| {
+    tex_coords.iter().for_each(|&(u, v)| { // TODO : Blender screws everything up. Don't know what to do
         writeln!(obj_writer, "vt {} {}", u, v).unwrap();
     });
     write!(obj_writer, "\n\n\n").unwrap();
 
     faces.iter().for_each(|face| {
+        let texinfo = &texinfos[face.texinfo as usize];
+        let tex = &miptexs[texinfo.imip as usize];
+        writeln!(obj_writer, "usemtl {}", read_name(tex.name)).unwrap(); // TODO : aaatrigger shouldn't be used
         write!(obj_writer, "f").unwrap();
         for i in 0..face.edges {
             let surfedge_i = face.first_edge + (i as u32);
@@ -113,10 +117,11 @@ fn write_obj(bsp: &[u8], wad_textures: &HashMap<String, Texture>, output_dir: St
 
     miptexs.iter().for_each(|mip_tex| {
         let name = read_name(mip_tex.name);
-
+        let transparency = if name == "aaatrigger" { "Tr 0" } else { "Tr 1" }; // TODO : Replace
         writeln!(mtl_writer, "newmtl {}", name).unwrap();
-        writeln!(mtl_writer, "Tr 1").unwrap();
+        writeln!(mtl_writer, "{}", transparency).unwrap();
         writeln!(mtl_writer, "map_Kd {}.png", name).unwrap();
+        writeln!(mtl_writer, "map_Ka {}.png", name).unwrap();
 
         let tex = wad_textures.get(&name).expect(&format!("Not found {} in wad textures", name));
         let file = File::create(format!("{}{}.png", output_dir, name)).expect("png file error");
