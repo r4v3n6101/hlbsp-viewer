@@ -52,6 +52,7 @@ impl MipTex {
             let g = col_table[i * 3 + 1];
             let b = col_table[i * 3 + 2];
             let a: u8 = if transparent && r == 0 && g == 0 && b == 255 { 0 } else { 255 };
+            let b = if a == 255 { b } else { 0 };
             let color = unsafe { transmute((r, g, b, a)) };
             pixels.push(color);
         }

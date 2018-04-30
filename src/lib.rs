@@ -1,3 +1,5 @@
+use std::ops::Mul;
+
 pub mod bsp;
 pub mod wad;
 pub mod texture;
@@ -6,9 +8,11 @@ pub mod texture;
 #[derive(Debug)]
 pub struct Vec3(pub f32, pub f32, pub f32);
 
-impl Vec3 {
-    pub fn dot(&self, a: &Vec3) -> f32 {
-        self.0 * a.0 + self.1 * a.1 + self.2 * a.2
+impl<'a> Mul for &'a Vec3 {
+    type Output = f32;
+
+    fn mul(self, rhs: &'a Vec3) -> f32 {
+        self.0 * rhs.0 + self.1 * rhs.1 + self.2 * rhs.2
     }
 }
 
