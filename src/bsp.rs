@@ -21,10 +21,17 @@ pub const LUMP_SURFEDGES: usize = 13;
 pub const LUMP_MODELS: usize = 14;
 
 #[repr(C)]
-pub struct Header { pub version: i32, pub lumps: [Lump; HEADER_LUMPS] }
+pub struct Header { pub version: u32, pub lumps: [Lump; HEADER_LUMPS] }
 
 #[repr(C)]
-pub struct Lump { pub offset: i32, pub length: i32 }
+pub struct Lump { pub offset: u32, pub length: u32 }
+
+#[repr(C)]
+pub struct Plane {
+    pub normal: Vec3,
+    pub distance: f32,
+    pub plane_type: i32,
+}
 
 #[repr(C)]
 pub struct Face {

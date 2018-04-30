@@ -65,6 +65,7 @@ fn write_obj(bsp: &[u8], wad_textures: &HashMap<String, Texture>, output_dir: &S
     let header: Header = read_struct(&bsp);
     let vertices: Vertices = header.lumps[LUMP_VERTICES].read_array(&bsp);
     let faces: Vec<Face> = header.lumps[LUMP_FACES].read_array(&bsp);
+    let planes: Vec<Plane> = header.lumps[LUMP_PLANES].read_array(&bsp);
     let surfedges: Vec<i32> = header.lumps[LUMP_SURFEDGES].read_array(&bsp);
     let edges: Vec<Edge> = header.lumps[LUMP_EDGES].read_array(&bsp);
     let texinfos: Vec<TexInfo> = header.lumps[LUMP_TEXINFO].read_array(&bsp);
@@ -73,6 +74,8 @@ fn write_obj(bsp: &[u8], wad_textures: &HashMap<String, Texture>, output_dir: &S
 
     writeln!(obj_writer, "mtllib out.mtl").unwrap();
     vertices.iter().for_each(|v| writeln!(obj_writer, "v {} {} {}", v.0, v.2, -v.1).unwrap());
+    planes.iter().map(|p| &p.normal)
+        .for_each(|n| writeln!(obj_writer, "vn {} {} {}", n.0, n.2, -n.1).unwrap());
     let mut tex_coords: Vec<(f32, f32)> = Vec::with_capacity(vertices.len());
     for face in faces {
         let texinfo = &texinfos[face.texinfo as usize];
@@ -83,7 +86,7 @@ fn write_obj(bsp: &[u8], wad_textures: &HashMap<String, Texture>, output_dir: &S
         if name == "sky" || name == "aaatrigger" {
             continue; // TODO : Remove unused vertices
         }
-        writeln!(obj_writer, "usemtl {}", name).unwrap();
+        writeln!(obj_writer, "usemtl {}", name).unwrap(); // TODO : Texture groups
         write!(obj_writer, "f ").unwrap();
         for i in 0..face.edges {
             let surfedge = surfedges[(face.first_edge + (i as u32)) as usize];
@@ -96,12 +99,11 @@ fn write_obj(bsp: &[u8], wad_textures: &HashMap<String, Texture>, output_dir: &S
             let s = (vertex * &texinfo.vs) + texinfo.fs;
             let t = (vertex * &texinfo.vt) + texinfo.ft;
             tex_coords.push((s / width, t / height));
-            write!(obj_writer, " {}/{}", vert + 1, tex_coords.len()).unwrap();
+            write!(obj_writer, " {}/{}/{}", vert + 1, tex_coords.len(), face.plane).unwrap();
         }
         writeln!(obj_writer).unwrap();
     }
     tex_coords.iter().for_each(|&(u, v)| writeln!(obj_writer, "vt {} {}", u, 1.0 - v).unwrap());
-    println!("{} {}", vertices.len(), tex_coords.len());
     miptexs.iter().for_each(|miptex| {
         let name = read_name(miptex.name);
 

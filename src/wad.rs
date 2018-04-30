@@ -5,18 +5,18 @@ const MAX_NAME: usize = 16;
 #[repr(C)]
 struct Header {
     magic: [u8; 4],
-    num_dir: i32,
-    dir_offset: i32,
+    num_dir: u32,
+    dir_offset: u32,
 }
 
 #[repr(C)]
 pub struct DirEntry {
-    pub file_pos: i32,
-    pub disk_size: i32,
-    pub size: i32,
-    pub entry_type: i8,
+    pub file_pos: u32,
+    pub disk_size: u32,
+    pub size: u32,
+    pub entry_type: u8,
     pub compression: bool,
-    dummy: i16,
+    dummy: u16,
     pub name: [u8; MAX_NAME],
 }
 
