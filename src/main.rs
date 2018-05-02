@@ -31,7 +31,7 @@ fn main() {
 
     let dir_path = Path::new(&output_path);
     if dir_path.exists() {
-        println!("Found old dir, remove this");
+        println!("Found old dir, removing");
         remove_dir_all(dir_path).expect("Error while removing output dir");
     }
     create_dir(dir_path).expect("Error while creating output dir");
@@ -50,10 +50,10 @@ fn write_obj(bsp: &[u8], wad_textures: &HashMap<String, Texture>, output_dir: &S
     let mtl_file = File::create(format!("{}out.mtl", output_dir)).expect("mtl file error");
     let mut mtl_writer = BufWriter::new(mtl_file);
 
-    println!("Reading data from bsp");
     let header: Header = read_struct(&bsp);
     let vertices: Vertices = header.lumps[LUMP_VERTICES].read_array(&bsp);
     let faces: Vec<Face> = header.lumps[LUMP_FACES].read_array(&bsp);
+    let planes: Vec<Plane> = header.lumps[LUMP_PLANES].read_array(&bsp);
     let surfedges: Vec<i32> = header.lumps[LUMP_SURFEDGES].read_array(&bsp);
     let edges: Vec<Edge> = header.lumps[LUMP_EDGES].read_array(&bsp);
     let texinfos: Vec<TexInfo> = header.lumps[LUMP_TEXINFO].read_array(&bsp);
@@ -62,6 +62,7 @@ fn write_obj(bsp: &[u8], wad_textures: &HashMap<String, Texture>, output_dir: &S
 
     println!("Process");
     let mut tex_coords: Vec<(f32, f32)> = Vec::with_capacity(vertices.len());
+    let mut normals: Vec<Vec3> = Vec::with_capacity(faces.len());
     type TextureGroup = Vec<String>;
     let mut tex_groups: HashMap<String, TextureGroup> = HashMap::with_capacity(miptexs.len());
     for face in faces {
@@ -74,6 +75,10 @@ fn write_obj(bsp: &[u8], wad_textures: &HashMap<String, Texture>, output_dir: &S
         let group = tex_groups.entry(name).or_insert(vec![]);
         let width = miptex.width as f32;
         let height = miptex.height as f32;
+        let plane = &planes[face.plane as usize];
+        let normal = if face.plane_side == 0 { plane.normal.clone() } else { -plane.normal.clone() };
+        normals.push(normal);
+        let normal_id = normals.len();
         let mut face_str = String::from("f ");
         for i in 0..face.edges {
             let surfedge = surfedges[(face.first_edge + (i as u32)) as usize];
@@ -86,7 +91,7 @@ fn write_obj(bsp: &[u8], wad_textures: &HashMap<String, Texture>, output_dir: &S
             let s = (vertex * &texinfo.vs) + texinfo.fs;
             let t = (vertex * &texinfo.vt) + texinfo.ft;
             tex_coords.push((s / width, t / height));
-            face_str += &format!(" {}/{}", vert + 1, tex_coords.len());
+            face_str += &format!(" {}/{}/{}", vert + 1, tex_coords.len(), normal_id);
         }
         group.push(face_str);
     }
@@ -95,6 +100,7 @@ fn write_obj(bsp: &[u8], wad_textures: &HashMap<String, Texture>, output_dir: &S
     writeln!(obj_writer, "mtllib out.mtl").unwrap();
     vertices.iter().for_each(|v| writeln!(obj_writer, "v {} {} {}", v.0, v.2, -v.1).unwrap());
     tex_coords.iter().for_each(|&(u, v)| writeln!(obj_writer, "vt {} {}", u, 1f32 - v).unwrap());
+    normals.iter().for_each(|n| writeln!(obj_writer, "vn {} {} {}", n.0, n.2, -n.1).unwrap());
     tex_groups.iter().for_each(|(name, group)| {
         writeln!(obj_writer, "usemtl {}", name).unwrap();
         group.iter().for_each(|f| writeln!(obj_writer, "{}", f).unwrap());

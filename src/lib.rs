@@ -1,11 +1,11 @@
-use std::ops::Mul;
+use std::ops::{Mul, Neg};
 
 pub mod bsp;
 pub mod wad;
 pub mod texture;
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Vec3(pub f32, pub f32, pub f32);
 
 impl<'a> Mul for &'a Vec3 {
@@ -13,6 +13,14 @@ impl<'a> Mul for &'a Vec3 {
 
     fn mul(self, rhs: &'a Vec3) -> f32 {
         self.0 * rhs.0 + self.1 * rhs.1 + self.2 * rhs.2
+    }
+}
+
+impl Neg for Vec3 {
+    type Output = Vec3;
+
+    fn neg(self) -> Vec3 {
+        Vec3(-self.0, -self.1, -self.2)
     }
 }
 
