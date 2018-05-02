@@ -14,14 +14,14 @@ pub struct MipTex {
     pub offsets: [u32; MIP_TEXTURES],
 }
 
-pub struct Texture { pub width: u32, pub height: u32, pub pixels: Vec<i32> }
+pub struct Texture { pub width: u32, pub height: u32, pub pixels: Vec<u32> }
 
 impl Texture {
-    pub fn get(&self, x: u32, y: u32) -> i32 {
+    pub fn get(&self, x: u32, y: u32) -> u32 {
         return self.pixels[(self.width * y + x) as usize];
     }
 
-    pub fn set(&mut self, x: u32, y: u32, color: i32) {
+    pub fn set(&mut self, x: u32, y: u32, color: u32) {
         self.pixels[(self.width * y + x) as usize] = color;
     }
 }
@@ -44,7 +44,7 @@ impl MipTex {
         let mip_tex_offset = self.offsets[mip_level] as usize;
         let indices_table = &mip_tex[mip_tex_offset..mip_tex_offset + len];
 
-        let mut pixels: Vec<i32> = Vec::with_capacity(len);
+        let mut pixels: Vec<u32> = Vec::with_capacity(len);
         let transparent = self.name[0] == 0x7B; // '{' means that blue pixel hasn't color
         for i in indices_table {
             let i = *i as usize;

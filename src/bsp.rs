@@ -2,7 +2,7 @@ use {read_mul_structs, read_struct};
 pub use Vec3;
 
 const HEADER_LUMPS: usize = 15;
-pub const HL_BSP_VERSION: i32 = 30;
+pub const HL_BSP_VERSION: u32 = 30;
 
 pub const LUMP_ENTITIES: usize = 0;
 pub const LUMP_PLANES: usize = 1;
@@ -30,7 +30,7 @@ pub struct Lump { pub offset: u32, pub length: u32 }
 pub struct Plane {
     pub normal: Vec3,
     pub distance: f32,
-    pub plane_type: i32,
+    pub plane_type: u32,
 }
 
 #[repr(C)]
