@@ -1,8 +1,3 @@
-use read_struct;
-pub use std::{collections::HashMap, path::Path};
-use std::{fs::File, io::{BufReader, Read}};
-use wad::{entries, read_name};
-
 const MAX_NAME: usize = 16;
 const MIP_TEXTURES: usize = 4;
 
@@ -57,35 +52,5 @@ impl MipTex {
             pixels.push(color);
         }
         return Texture { width: width as u32, height: height as u32, pixels };
-    }
-}
-
-pub fn read_textures(path: &Path, mip_level: usize) -> HashMap<String, Texture> {
-    fn read_file(path: &Path, mip_level: usize) -> HashMap<String, Texture> {
-        let wad_file = File::open(path).expect("Error reading wad file");
-        let size = wad_file.metadata().unwrap().len() + 1;
-        let mut wad: Vec<u8> = Vec::with_capacity(size as usize);
-
-        let mut buf_reader = BufReader::new(wad_file);
-        buf_reader.read_to_end(&mut wad).unwrap();
-
-        entries(&wad).iter().map(|entry| {
-            let tex_offset = entry.file_pos as usize;
-            let tex: MipTex = read_struct(&wad[tex_offset..]);
-
-            let col_table = tex.get_color_table(&wad[tex_offset..]);
-            let texture = tex.read_texture(&wad[tex_offset..], col_table, mip_level);
-
-            let name = read_name(tex.name);
-            (name, texture)
-        }).collect()
-    }
-    if path.is_file() {
-        read_file(path, mip_level)
-    } else {
-        path.read_dir().expect("Error while reading dir").flat_map(|entry| {
-            let entry = entry.expect("Error while reading dir entry");
-            read_file(&entry.path(), mip_level)
-        }).collect()
     }
 }
