@@ -12,27 +12,30 @@ use std::{
     env::args,
     fs::{create_dir, File, read_dir, ReadDir, remove_dir_all},
     io::{BufReader, BufWriter, Read, Write},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 fn main() {
+    let executable_path = args().nth(0).expect("exe path");
     let bsp_path = args().nth(1).expect("bsp path");
-    let output_path = bsp_path.replace(".bsp", "/");
+    let map_name = Path::new(&bsp_path).file_name().unwrap();
+    let mut output_path = PathBuf::new();
+    output_path.push(Path::new(&executable_path).parent().unwrap());
+    output_path.push(map_name);
 
     println!("Reading {}", bsp_path);
-    let bsp_file = File::open(bsp_path).expect("bsp file error");
+    let bsp_file = File::open(&bsp_path).expect("bsp file error");
     let size = bsp_file.metadata().unwrap().len() + 1;
     let mut bsp: Vec<u8> = Vec::with_capacity(size as usize);
     let mut buf_reader = BufReader::new(bsp_file);
     buf_reader.read_to_end(&mut bsp).unwrap();
 
-    let dir_path = Path::new(&output_path);
-    if dir_path.exists() {
+    if output_path.exists() {
         println!("Removing old dir");
-        remove_dir_all(dir_path).expect("Error while removing output dir");
+        remove_dir_all(&output_path).expect("Error while removing output dir");
     }
-    create_dir(dir_path).expect("Error while creating output dir");
-    process(&bsp, &output_path);
+    create_dir(&output_path).expect("Error while creating output dir");
+    process(&bsp, output_path.to_str().unwrap());
 }
 
 type UV = (f32, f32);
@@ -51,7 +54,7 @@ fn write_mtl<W: Write>(out: &mut W, miptexs: &Vec<MipTex>, output_dir: &str) {
     let wad_path = args().nth(2).expect("wad path");
     let wad_dir = read_dir(wad_path).unwrap();
     let required: HashSet<String> =
-        miptexs.iter().map(|miptex| { read_name(miptex.name) }).collect();
+        miptexs.iter().map(|miptex| read_name(miptex.name)).collect();
     println!("Required textures: {:?}", required);
     let textures: TextureMap = found_textures(wad_dir, required, 0);
     textures.iter().for_each(|(name, texture)| {
@@ -59,15 +62,13 @@ fn write_mtl<W: Write>(out: &mut W, miptexs: &Vec<MipTex>, output_dir: &str) {
         writeln!(out, "map_Kd {}.png", name).unwrap();
         writeln!(out, "Tr 1").unwrap();
 
-        let file = File::create(format!("{}{}.png", output_dir, name)).expect("png file error");
+        let file = File::create(format!("{}/{}.png", output_dir, name)).expect("png file error");
         let mut buf_writer = BufWriter::new(file);
         write_image(&mut buf_writer, texture);
     });
 }
 
-fn prepare_data(
-    map: &BspMap, uvs: &mut Vec<UV>, normals: &mut Vec<Vec3>, groups: &mut String,
-) {
+fn prepare_data(map: &BspMap, uvs: &mut Vec<UV>, normals: &mut Vec<Vec3>, groups: &mut String) {
     for (i, model) in map.models.iter().enumerate() {
         // I know it's dirty code
         type TextureGroup = Vec<String>;
@@ -124,24 +125,24 @@ fn prepare_data(
     }
 }
 
-fn process(bsp: &[u8], output_dir: &String) {
+fn process(bsp: &[u8], output_dir: &str) {
     let map = BspMap::new(bsp).unwrap();
 
     let vertices = &map.vertices;
-    let mut tex_coords: Vec<(f32, f32)> = Vec::with_capacity(vertices.len());
+    let mut uvs: Vec<UV> = Vec::with_capacity(vertices.len());
     let mut normals: Vec<Vec3> = Vec::with_capacity(vertices.len());
     let mut groups = String::new();
     println!("Collecting data");
-    prepare_data(&map, &mut tex_coords, &mut normals, &mut groups);
+    prepare_data(&map, &mut uvs, &mut normals, &mut groups);
 
     println!("Writing obj file");
-    let obj_file = File::create(format!("{}out.obj", output_dir)).expect("obj file error");
+    let obj_file = File::create(format!("{}/out.obj", output_dir)).expect("obj file error");
     let mut obj_writer = BufWriter::new(obj_file);
-    write_obj(&mut obj_writer, vertices, &normals, &tex_coords, &groups);
+    write_obj(&mut obj_writer, vertices, &normals, &uvs, &groups);
     obj_writer.flush().unwrap();
 
     println!("Writing textures & materials");
-    let mtl_file = File::create(format!("{}out.mtl", output_dir)).expect("mtl file error");
+    let mtl_file = File::create(format!("{}/out.mtl", output_dir)).expect("mtl file error");
     let mut mtl_writer = BufWriter::new(mtl_file);
     write_mtl(&mut mtl_writer, &map.miptexs, output_dir);
     mtl_writer.flush().unwrap();
@@ -167,12 +168,12 @@ fn found_textures(dir: ReadDir, required: HashSet<String>, mip_level: usize) -> 
         let mut buf_reader = BufReader::new(wad_file);
         buf_reader.read_to_end(&mut wad).unwrap();
 
-        entries(&wad).iter().filter_map(|e| {
+        entries(&wad).iter().filter_map(|e| { // Read only required textures
             let name = read_name(e.name);
-            if required.contains(&name) {
+            if required.contains(&name) { // O(1) for hash set, so it should be fast
                 let tex_slice = &wad[e.file_pos as usize..];
                 let miptex: MipTex = read_struct(tex_slice);
-                let color_table = miptex.get_color_table(tex_slice);
+                let color_table: &[u8] = miptex.get_color_table(tex_slice);
                 let texture = miptex.read_texture(tex_slice, color_table, mip_level);
                 Some((name, texture))
             } else {
@@ -184,12 +185,12 @@ fn found_textures(dir: ReadDir, required: HashSet<String>, mip_level: usize) -> 
     dir.filter_map(|entry| {
         let entry = entry.unwrap();
         let path = entry.path();
-        if path.is_file() && path.extension().unwrap_or("".as_ref()) == "wad" {
+        if path.is_file() && path.extension().unwrap_or("".as_ref()) == "wad" { // Only wad files
             Some(path)
         } else {
             None
         }
-    }).flat_map(|path| {
+    }).flat_map(|path| { // Read them
         let wad_file = File::open(path).unwrap();
         read_file(wad_file, &required, mip_level)
     }).collect()

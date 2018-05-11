@@ -1,6 +1,7 @@
 [package]
 name = "hlbsp2obj"
-version = "1.0.1"
+version = "1.1.1"
+description = "Converter from hl1's bsp files to obj models"
 authors = ["r4v3n6101 <raven6107@gmail.com>"]
 
 [dependencies.image]

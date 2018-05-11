@@ -16,10 +16,11 @@ pub struct DirEntry {
     pub size: u32,
     pub entry_type: u8,
     pub compression: bool,
-    dummy: u16,
+    _dummy: u16,
     pub name: [u8; MAX_NAME],
 }
 
+/// Cut down string at first NUL byte
 pub fn read_name(name: [u8; MAX_NAME]) -> String {
     let index_null = name.iter().position(|&c| c == 0);
     let str = match index_null {

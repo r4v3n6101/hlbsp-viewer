@@ -83,6 +83,7 @@ pub struct Model {
     pub faces: u32,
 }
 
+/// General struct representing bsp file
 pub struct BspMap {
     pub entities: String,
     pub planes: Vec<Plane>,

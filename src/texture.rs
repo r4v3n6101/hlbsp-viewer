@@ -1,6 +1,7 @@
 const MAX_NAME: usize = 16;
 const MIP_TEXTURES: usize = 4;
 
+/// Representation of MipTex struct contains in bsp and wad files
 #[repr(C)]
 pub struct MipTex {
     pub name: [u8; MAX_NAME],
@@ -22,12 +23,17 @@ impl Texture {
 }
 
 impl MipTex {
+    /// Gather color table which is located after last mip texture and 2 bytes
+    /// Required for building pixels from indices to color table
+    /// Return slice to table consists of 256 RGB values or 256 * 3 bytes
     pub fn get_color_table<'a>(&self, mip_tex: &'a [u8]) -> &'a [u8] {
         let last_mip_offset = (self.offsets[3] + (self.width * self.height) / 64) as usize;
         let offset = last_mip_offset + 2; // 2 dummy bytes
         return &mip_tex[offset..offset + 256 * 3];
     }
 
+    /// Read texture from mip_tex
+    /// Require color table to access to RGB values by indices
     pub fn read_texture(&self, mip_tex: &[u8], col_table: &[u8], mip_level: usize) -> Texture {
         use std::mem::transmute;
 
