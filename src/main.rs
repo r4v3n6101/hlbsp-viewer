@@ -1,7 +1,7 @@
-extern crate hlbsp2obj;
+extern crate hlbsp;
 extern crate image;
 
-use hlbsp2obj::{
+use hlbsp::{
     bsp::*,
     read_struct,
     texture::Texture,
@@ -169,10 +169,10 @@ fn found_textures(dir: ReadDir, required: HashSet<String>, mip_level: usize) -> 
         buf_reader.read_to_end(&mut wad).unwrap();
 
         entries(&wad).iter().filter_map(|e| { // Read only required textures
-            let name = read_name(e.name);
+            let tex_slice = &wad[e.file_pos as usize..];
+            let miptex: MipTex = read_struct(tex_slice);
+            let name = read_name(miptex.name); // Name of entry doesn't equal to miptex's name
             if required.contains(&name) { // O(1) for hash set, so it should be fast
-                let tex_slice = &wad[e.file_pos as usize..];
-                let miptex: MipTex = read_struct(tex_slice);
                 let color_table: &[u8] = miptex.get_color_table(tex_slice);
                 let texture = miptex.read_texture(tex_slice, color_table, mip_level);
                 Some((name, texture))
