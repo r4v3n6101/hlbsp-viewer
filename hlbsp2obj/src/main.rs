@@ -62,9 +62,7 @@ fn write_mtl<W: Write>(out: &mut W, miptexs: &Vec<MipTex>, output_dir: &str) {
         writeln!(out, "map_Kd {}.png", name).unwrap();
         writeln!(out, "Tr 1").unwrap();
 
-        let file = File::create(format!("{}/{}.png", output_dir, name)).expect("png file error");
-        let mut buf_writer = BufWriter::new(file);
-        write_image(&mut buf_writer, texture);
+        write_image(&format!("{}/{}.png", output_dir, name), texture);
     });
 }
 
@@ -127,7 +125,6 @@ fn prepare_data(map: &BspMap, uvs: &mut Vec<UV>, normals: &mut Vec<Vec3>, groups
 
 fn process(bsp: &[u8], output_dir: &str) {
     let map = BspMap::new(bsp).unwrap();
-
     let vertices = &map.vertices;
     let mut uvs: Vec<UV> = Vec::with_capacity(vertices.len());
     let mut normals: Vec<Vec3> = Vec::with_capacity(vertices.len());
@@ -148,8 +145,8 @@ fn process(bsp: &[u8], output_dir: &str) {
     mtl_writer.flush().unwrap();
 }
 
-fn write_image<W: Write>(out: &mut W, texture: &Texture) {
-    use image::{ImageRgba8, ImageBuffer, Rgba, PNG};
+fn write_image(output_path: &str, texture: &Texture) {
+    use image::{ImageRgba8, ImageBuffer, Rgba};
     use std::mem::transmute;
 
     let mut img_buffer = ImageBuffer::new(texture.width, texture.height);
@@ -158,7 +155,7 @@ fn write_image<W: Write>(out: &mut W, texture: &Texture) {
         *pixel = Rgba(color);
     }
 
-    ImageRgba8(img_buffer).save(out, PNG).expect("Error while writing image");
+    ImageRgba8(img_buffer).save(output_path).expect("Error while writing image");
 }
 
 fn found_textures(dir: ReadDir, required: HashSet<String>, mip_level: usize) -> TextureMap {

@@ -3,4 +3,7 @@ name = "hlbsp"
 version = "1.0.0"
 authors = ["r4v3n6101 <raven6107@gmail.com>"]
 
-[dependencies]
+[workspace]
+members = [
+    "hlbsp2obj",
+]
