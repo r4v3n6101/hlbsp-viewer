@@ -21,13 +21,13 @@ pub struct DirEntry {
 }
 
 /// Cut down string at first NUL byte
-pub fn read_name(name: [u8; MAX_NAME]) -> String {
+pub fn read_name(name: &[u8]) -> String {
     let index_null = name.iter().position(|&c| c == 0);
-    let str = match index_null {
+    let name = match index_null {
         Some(i) => &name[..i],
-        None => &name
+        None => name
     };
-    return String::from_utf8_lossy(str).into_owned();
+    return String::from_utf8_lossy(name).into_owned();
 }
 
 pub fn entries(buf: &[u8]) -> Vec<DirEntry> {
