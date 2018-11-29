@@ -54,7 +54,7 @@ fn write_mtl<W: Write>(out: &mut W, miptexs: &Vec<MipTex>, output_dir: &str) {
     let wad_path = args().nth(2).expect("wad path");
     let wad_dir = read_dir(wad_path).unwrap();
     let required: HashSet<String> =
-        miptexs.iter().map(|miptex| read_name(miptex.name)).collect();
+        miptexs.iter().map(|miptex| read_name(&miptex.name)).collect();
     println!("Required textures: {:?}", required);
     let textures: TextureMap = found_textures(wad_dir, required, 0);
     textures.iter().for_each(|(name, texture)| {
@@ -77,7 +77,7 @@ fn prepare_data(map: &BspMap, uvs: &mut Vec<UV>, normals: &mut Vec<Vec3>, groups
             let texinfo = &map.texinfos[face.texinfo as usize];
             let miptex = &map.miptexs[texinfo.imip as usize];
 
-            let name = read_name(miptex.name);
+            let name = read_name(&miptex.name);
             if name == "sky" || name == "aaatrigger" {
                 continue;
             }
@@ -168,7 +168,7 @@ fn found_textures(dir: ReadDir, required: HashSet<String>, mip_level: usize) -> 
         entries(&wad).iter().filter_map(|e| { // Read only required textures
             let tex_slice = &wad[e.file_pos as usize..];
             let miptex: MipTex = read_struct(tex_slice);
-            let name = read_name(miptex.name); // Name of entry doesn't equal to miptex's name
+            let name = read_name(&miptex.name); // Name of entry doesn't equal to miptex's name
             if required.contains(&name) { // O(1) for hash set, so it should be fast
                 let color_table: &[u8] = miptex.get_color_table(tex_slice);
                 let texture = miptex.read_texture(tex_slice, color_table, mip_level);
