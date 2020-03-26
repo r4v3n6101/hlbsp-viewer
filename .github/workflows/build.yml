@@ -1,14 +1,12 @@
+name: Rust build
+
 on: [push]
 
-name: build
 
 jobs:
   build:
-    name: Rust project
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --all-features --workspace
+      - name: Build
+        run: cargo build --verbose --release --workspace --all-features
