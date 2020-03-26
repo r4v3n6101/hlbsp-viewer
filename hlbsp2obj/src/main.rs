@@ -1,27 +1,25 @@
 extern crate hlbsp;
 extern crate image;
 
+use std::{
+    collections::{HashMap, HashSet},
+    env::args,
+    fs::{create_dir, File, read_dir, ReadDir, remove_dir_all},
+    io::{BufReader, BufWriter, Read, Write},
+    path::Path,
+};
+
 use hlbsp::{
     bsp::*,
     read_struct,
     texture::Texture,
     wad::{entries, read_name},
 };
-use std::{
-    collections::{HashMap, HashSet},
-    env::args,
-    fs::{create_dir, File, read_dir, ReadDir, remove_dir_all},
-    io::{BufReader, BufWriter, Read, Write},
-    path::{Path, PathBuf},
-};
 
 fn main() {
-    let executable_path = args().nth(0).expect("exe path");
     let bsp_path = args().nth(1).expect("bsp path");
-    let map_name = Path::new(&bsp_path).file_name().unwrap();
-    let mut output_path = PathBuf::new();
-    output_path.push(Path::new(&executable_path).parent().unwrap());
-    output_path.push(map_name);
+    let output_dir = bsp_path.clone() + "_out/";
+    let output_path = Path::new(&output_dir);
 
     println!("Reading {}", bsp_path);
     let bsp_file = File::open(&bsp_path).expect("bsp file error");
