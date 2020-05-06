@@ -4,7 +4,7 @@ extern crate image;
 use std::{
     collections::{HashMap, HashSet},
     env::args,
-    fs::{create_dir, File, read_dir, ReadDir, remove_dir_all},
+    fs::{create_dir, read_dir, remove_dir_all, File, ReadDir},
     io::{BufReader, BufWriter, Read, Write},
     path::Path,
 };
@@ -40,19 +40,30 @@ type UV = (f32, f32);
 type TextureMap = HashMap<String, Texture>;
 
 fn write_obj<W: Write>(
-    out: &mut W, vertices: &Vec<Vertex>, normals: &Vec<Vec3>, uvs: &Vec<UV>, groups: &String,
+    out: &mut W,
+    vertices: &Vec<Vertex>,
+    normals: &Vec<Vec3>,
+    uvs: &Vec<UV>,
+    groups: &String,
 ) {
-    vertices.iter().for_each(|v| writeln!(out, "v {} {} {}", v.0, v.2, -v.1).unwrap());
-    uvs.iter().for_each(|&(u, v)| writeln!(out, "vt {} {}", u, 1.0 - v).unwrap());
-    normals.iter().for_each(|n| writeln!(out, "vn {} {} {}", n.0, n.2, -n.1).unwrap());
+    vertices
+        .iter()
+        .for_each(|v| writeln!(out, "v {} {} {}", v.0, v.2, -v.1).unwrap());
+    uvs.iter()
+        .for_each(|&(u, v)| writeln!(out, "vt {} {}", u, 1.0 - v).unwrap());
+    normals
+        .iter()
+        .for_each(|n| writeln!(out, "vn {} {} {}", n.0, n.2, -n.1).unwrap());
     writeln!(out, "{}", groups).unwrap();
 }
 
 fn write_mtl<W: Write>(out: &mut W, miptexs: &Vec<MipTex>, output_dir: &str) {
     let wad_path = args().nth(2).expect("wad path");
     let wad_dir = read_dir(wad_path).unwrap();
-    let required: HashSet<String> =
-        miptexs.iter().map(|miptex| read_name(&miptex.name)).collect();
+    let required: HashSet<String> = miptexs
+        .iter()
+        .map(|miptex| read_name(&miptex.name))
+        .collect();
     println!("Required textures: {:?}", required);
     let textures: TextureMap = found_textures(wad_dir, required, 0);
     textures.iter().for_each(|(name, texture)| {
@@ -144,7 +155,7 @@ fn process(bsp: &[u8], output_dir: &str) {
 }
 
 fn write_image(output_path: &str, texture: &Texture) {
-    use image::{ImageRgba8, ImageBuffer, Rgba};
+    use image::{ImageBuffer, ImageRgba8, Rgba};
     use std::mem::transmute;
 
     let mut img_buffer = ImageBuffer::new(texture.width, texture.height);
@@ -153,7 +164,9 @@ fn write_image(output_path: &str, texture: &Texture) {
         *pixel = Rgba(color);
     }
 
-    ImageRgba8(img_buffer).save(output_path).expect("Error while writing image");
+    ImageRgba8(img_buffer)
+        .save(output_path)
+        .expect("Error while writing image");
 }
 
 fn found_textures(dir: ReadDir, required: HashSet<String>, mip_level: usize) -> TextureMap {
@@ -163,30 +176,39 @@ fn found_textures(dir: ReadDir, required: HashSet<String>, mip_level: usize) -> 
         let mut buf_reader = BufReader::new(wad_file);
         buf_reader.read_to_end(&mut wad).unwrap();
 
-        entries(&wad).iter().filter_map(|e| { // Read only required textures
-            let tex_slice = &wad[e.file_pos as usize..];
-            let miptex: MipTex = read_struct(tex_slice);
-            let name = read_name(&miptex.name); // Name of entry doesn't equal to miptex's name
-            if required.contains(&name) { // O(1) for hash set, so it should be fast
-                let color_table: &[u8] = miptex.get_color_table(tex_slice);
-                let texture = miptex.read_texture(tex_slice, color_table, mip_level);
-                Some((name, texture))
-            } else {
-                None
-            }
-        }).collect()
+        entries(&wad)
+            .iter()
+            .filter_map(|e| {
+                // Read only required textures
+                let tex_slice = &wad[e.file_pos as usize..];
+                let miptex: MipTex = read_struct(tex_slice);
+                let name = read_name(&miptex.name); // Name of entry doesn't equal to miptex's name
+                if required.contains(&name) {
+                    // O(1) for hash set, so it should be fast
+                    let color_table: &[u8] = miptex.get_color_table(tex_slice);
+                    let texture = miptex.read_texture(tex_slice, color_table, mip_level);
+                    Some((name, texture))
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     dir.filter_map(|entry| {
         let entry = entry.unwrap();
         let path = entry.path();
-        if path.is_file() && path.extension().unwrap_or("".as_ref()) == "wad" { // Only wad files
+        if path.is_file() && path.extension().unwrap_or("".as_ref()) == "wad" {
+            // Only wad files
             Some(path)
         } else {
             None
         }
-    }).flat_map(|path| { // Read them
+    })
+    .flat_map(|path| {
+        // Read them
         let wad_file = File::open(path).unwrap();
         read_file(wad_file, &required, mip_level)
-    }).collect()
+    })
+    .collect()
 }

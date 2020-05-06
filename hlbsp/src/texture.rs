@@ -10,7 +10,11 @@ pub struct MipTex {
     pub offsets: [u32; MIP_TEXTURES],
 }
 
-pub struct Texture { pub width: u32, pub height: u32, pub pixels: Vec<u32> }
+pub struct Texture {
+    pub width: u32,
+    pub height: u32,
+    pub pixels: Vec<u32>,
+}
 
 impl Texture {
     pub fn get(&self, x: u32, y: u32) -> u32 {
@@ -52,11 +56,19 @@ impl MipTex {
             let r = col_table[i * 3];
             let g = col_table[i * 3 + 1];
             let b = col_table[i * 3 + 2];
-            let a: u8 = if transparent && r == 0 && g == 0 && b == 255 { 0 } else { 255 };
+            let a: u8 = if transparent && r == 0 && g == 0 && b == 255 {
+                0
+            } else {
+                255
+            };
             let b = if a == 255 { b } else { 0 };
             let color = unsafe { transmute((r, g, b, a)) };
             pixels.push(color);
         }
-        return Texture { width: width as u32, height: height as u32, pixels };
+        return Texture {
+            width: width as u32,
+            height: height as u32,
+            pixels,
+        };
     }
 }

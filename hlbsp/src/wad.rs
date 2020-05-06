@@ -25,7 +25,7 @@ pub fn read_name(name: &[u8]) -> String {
     let index_null = name.iter().position(|&c| c == 0);
     let name = match index_null {
         Some(i) => &name[..i],
-        None => name
+        None => name,
     };
     return String::from_utf8_lossy(name).into_owned();
 }

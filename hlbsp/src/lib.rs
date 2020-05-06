@@ -1,8 +1,8 @@
 use std::ops::{Mul, Neg};
 
 pub mod bsp;
-pub mod wad;
 pub mod texture;
+pub mod wad;
 
 #[repr(C)]
 #[derive(Debug, Clone)]

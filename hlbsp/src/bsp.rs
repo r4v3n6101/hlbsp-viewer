@@ -1,6 +1,6 @@
-use {read_mul_structs, read_struct};
 pub use texture::MipTex;
 pub use Vec3;
+use {read_mul_structs, read_struct};
 
 const HEADER_LUMPS: usize = 15;
 pub const HL_BSP_VERSION: u32 = 30;
@@ -22,10 +22,16 @@ pub const LUMP_SURFEDGES: usize = 13;
 pub const LUMP_MODELS: usize = 14;
 
 #[repr(C)]
-pub struct Header { pub version: u32, pub lumps: [Lump; HEADER_LUMPS] }
+pub struct Header {
+    pub version: u32,
+    pub lumps: [Lump; HEADER_LUMPS],
+}
 
 #[repr(C)]
-pub struct Lump { pub offset: u32, pub length: u32 }
+pub struct Lump {
+    pub offset: u32,
+    pub length: u32,
+}
 
 impl Lump {
     pub fn read_struct<T>(&self, buf: &[u8]) -> T {
