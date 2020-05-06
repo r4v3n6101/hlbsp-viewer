@@ -18,7 +18,7 @@ use hlbsp::{
 
 fn main() {
     let bsp_path = args().nth(1).expect("bsp path");
-    let output_dir = bsp_path.clone() + "_out/";
+    let output_dir = format!("{}_out/", bsp_path);
     let output_path = Path::new(&output_dir);
 
     println!("Reading {}", bsp_path);
