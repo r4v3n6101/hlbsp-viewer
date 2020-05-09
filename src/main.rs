@@ -5,10 +5,10 @@ extern crate structopt;
 use std::{
     collections::{HashMap, HashSet},
     fs::read,
-    fs::File,
+    fs::OpenOptions,
     io::{BufWriter, Write},
     iter::Iterator,
-    path::{PathBuf, Path},
+    path::{Path, PathBuf},
 };
 
 use hlbsp::{bsp::*, read_struct, texture::Texture, wad::entries};
@@ -60,12 +60,16 @@ fn read_bsp(bsp_path: &PathBuf) -> BspMap {
 
 type UV = (f32, f32);
 
-fn write_obj(outputdir: &PathBuf, vertices: &[Vertex], normals: &[Vec3], uvs: &[UV], groups: &str){
-   let obj_path = outputdir.join("out.obj");
-   let file = File::open(obj_path).unwrap();
-   let mut writer = BufWriter::new(file);
+fn write_obj(outputdir: &PathBuf, vertices: &[Vertex], normals: &[Vec3], uvs: &[UV], groups: &str) {
+    let obj_path = outputdir.join("out.obj");
+    let file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(obj_path)
+        .unwrap();
+    let mut writer = BufWriter::new(file);
 
-   vertices
+    vertices
         .iter()
         .for_each(|v| writeln!(writer, "v {} {} {}", v.0, v.2, -v.1).unwrap());
     uvs.iter()
@@ -78,7 +82,11 @@ fn write_obj(outputdir: &PathBuf, vertices: &[Vertex], normals: &[Vec3], uvs: &[
 
 fn write_mtl(outputdir: &PathBuf, wads: &Vec<PathBuf>, miptexs: &Vec<MipTex>, mip_level: u8) {
     let mtl_path = outputdir.join("out.mtl");
-    let file = File::open(mtl_path).unwrap();
+    let file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(mtl_path)
+        .unwrap();
     let mut writer = BufWriter::new(file);
 
     let textures: HashSet<String> = miptexs.iter().map(|mip| mip.get_name()).collect();
@@ -151,7 +159,7 @@ fn prepare_data(map: &BspMap, uvs: &mut Vec<UV>, normals: &mut Vec<Vec3>, groups
     }
 }
 
-fn write_image<P:AsRef<Path>>(output_path: P, texture: &Texture) {
+fn write_image<P: AsRef<Path>>(output_path: P, texture: &Texture) {
     use image::{ImageBuffer, ImageRgba8, Rgba};
     use std::mem::transmute;
 

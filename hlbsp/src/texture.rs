@@ -29,7 +29,10 @@ impl Texture {
 impl MipTex {
 
     fn name_as_str<'a>(&'a self) -> &'a str {
-        std::ffi::CStr::from_bytes_with_nul(&self.name).unwrap().to_str().unwrap()
+        match std::ffi::CStr::from_bytes_with_nul(&self.name){
+            Ok(val) => val.to_str().unwrap(),
+            Err(_) => "null"
+        }
     }
 
     /// Gather color table which is located after last mip texture and 2 bytes

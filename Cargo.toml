@@ -13,3 +13,9 @@ path = "hlbsp"
 
 [dependencies.structopt]
 version = "*"
+
+[profile.release]
+opt-level = "z"
+lto = true
+panic = 'abort'
+codegen-units = 1
