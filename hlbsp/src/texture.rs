@@ -27,10 +27,15 @@ impl Texture {
 }
 
 impl MipTex {
+
+    fn name_as_str<'a>(&'a self) -> &'a str {
+        std::ffi::CStr::from_bytes_with_nul(&self.name).unwrap().to_str().unwrap()
+    }
+
     /// Gather color table which is located after last mip texture and 2 bytes
     /// Required for building pixels from indices to color table
     /// Return slice to table consists of 256 RGB values or 256 * 3 bytes
-    pub fn get_color_table<'a>(&self, mip_tex: &'a [u8]) -> &'a [u8] {
+    fn get_color_table<'a>(&self, mip_tex: &'a [u8]) -> &'a [u8] {
         let last_mip_offset = (self.offsets[3] + (self.width * self.height) / 64) as usize;
         let offset = last_mip_offset + 2; // 2 dummy bytes
         return &mip_tex[offset..offset + 256 * 3];
@@ -38,7 +43,7 @@ impl MipTex {
 
     /// Read texture from mip_tex
     /// Require color table to access to RGB values by indices
-    pub fn read_texture(&self, mip_tex: &[u8], col_table: &[u8], mip_level: usize) -> Texture {
+    fn read_texture(&self, mip_tex: &[u8], col_table: &[u8], mip_level: u8) -> Texture {
         use std::mem::transmute;
 
         let mip_k = 1 << mip_level; // 2^mip_level
@@ -46,7 +51,7 @@ impl MipTex {
         let height = self.height as usize / mip_k;
 
         let len = width * height;
-        let mip_tex_offset = self.offsets[mip_level] as usize;
+        let mip_tex_offset = self.offsets[mip_level as usize] as usize;
         let indices_table = &mip_tex[mip_tex_offset..mip_tex_offset + len];
 
         let mut pixels: Vec<u32> = Vec::with_capacity(len);
@@ -70,5 +75,15 @@ impl MipTex {
             height: height as u32,
             pixels,
         };
+    }
+
+    pub fn get_name(&self) -> String {
+        self.name_as_str().to_string()
+    }
+
+    pub fn get_texture(&self, mip_tex: &[u8], mip_level: u8) -> Texture {
+        let color_table = self.get_color_table(mip_tex);
+        let tex = self.read_texture(mip_tex, color_table, mip_level);
+        return tex;
     }
 }

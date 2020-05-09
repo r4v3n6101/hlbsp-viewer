@@ -20,16 +20,6 @@ pub struct DirEntry {
     pub name: [u8; MAX_NAME],
 }
 
-/// Cut down string at first NUL byte
-pub fn read_name(name: &[u8]) -> String {
-    let index_null = name.iter().position(|&c| c == 0);
-    let name = match index_null {
-        Some(i) => &name[..i],
-        None => name,
-    };
-    return String::from_utf8_lossy(name).into_owned();
-}
-
 pub fn entries(buf: &[u8]) -> Vec<DirEntry> {
     use std::mem::size_of;
 

@@ -10,3 +10,6 @@ version = "*"
 
 [dependencies.hlbsp]
 path = "hlbsp"
+
+[dependencies.structopt]
+version = "*"
