@@ -64,7 +64,7 @@ fn write_obj(outputdir: &PathBuf, vertices: &[Vertex], normals: &[Vec3], uvs: &[
     let obj_path = outputdir.join("out.obj");
     let file = OpenOptions::new()
         .write(true)
-        .create_new(true)
+        .create(true)
         .open(obj_path)
         .unwrap();
     let mut writer = BufWriter::new(file);
@@ -84,22 +84,39 @@ fn write_mtl(outputdir: &PathBuf, wads: &Vec<PathBuf>, miptexs: &Vec<MipTex>, mi
     let mtl_path = outputdir.join("out.mtl");
     let file = OpenOptions::new()
         .write(true)
-        .create_new(true)
+        .create(true)
         .open(mtl_path)
         .unwrap();
     let mut writer = BufWriter::new(file);
 
     let textures: HashSet<String> = miptexs.iter().map(|mip| mip.get_name()).collect();
-    iter_wads(wads, mip_level)
-        .filter(|(name, _)| textures.contains(name))
-        .for_each(|(name, tex)| {
-            writeln!(writer, "newmtl {}", name).unwrap();
-            writeln!(writer, "map_Kd {}.png", name).unwrap();
-            writeln!(writer, "Tr 1").unwrap();
+    println!("Required textures: {:?}", textures);
 
-            let tex_path = outputdir.join(name);
-            write_image(tex_path, &tex);
-        });
+    wads.iter().for_each(|wad| {
+        let wad_buf: Vec<u8> = read(wad).unwrap();
+        entries(&wad_buf)
+            .iter()
+            .filter_map(|entry| {
+                let mip = &wad_buf[entry.file_pos as usize..];
+                let miptex: MipTex = read_struct(mip); 
+                let name = miptex.get_name();
+
+                if textures.contains(&name) {
+                    let tex = miptex.get_texture(&mip, mip_level);
+                    Some((name, tex))
+                } else {
+                    None
+                }
+            })
+            .for_each(|(name, tex)| {
+                writeln!(writer, "newmtl {}", name).unwrap();
+                writeln!(writer, "map_Kd {}.png", name).unwrap();
+                writeln!(writer, "Tr 1").unwrap();
+
+                let tex_path = outputdir.join(format!("{}.png", name));
+                write_image(tex_path, &tex);
+            });
+    });
 }
 
 fn prepare_data(map: &BspMap, uvs: &mut Vec<UV>, normals: &mut Vec<Vec3>, groups: &mut String) {
@@ -172,24 +189,4 @@ fn write_image<P: AsRef<Path>>(output_path: P, texture: &Texture) {
     ImageRgba8(img_buffer)
         .save(output_path)
         .expect("Error while writing image");
-}
-
-type NamedTexture = (String, Texture);
-
-fn iter_wad<P: AsRef<Path>>(path: P, mip_level: u8) -> impl Iterator<Item = NamedTexture> {
-    let buf: Vec<u8> = read(path).unwrap();
-    entries(&buf).into_iter().map(move |entry| {
-        let mip = &buf[entry.file_pos as usize..];
-        let miptex: MipTex = read_struct(mip); // todo : specify offset not to produce slices
-        let name = miptex.get_name();
-        let tex = miptex.get_texture(mip, mip_level);
-        (name, tex)
-    })
-}
-
-fn iter_wads<'a, P: AsRef<Path>>(
-    wads: &'a [P],
-    mip_level: u8,
-) -> impl Iterator<Item = NamedTexture> + 'a {
-    wads.iter().flat_map(move |path| iter_wad(path, mip_level))
 }

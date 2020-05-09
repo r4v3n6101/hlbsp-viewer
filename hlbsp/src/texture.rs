@@ -27,14 +27,6 @@ impl Texture {
 }
 
 impl MipTex {
-
-    fn name_as_str<'a>(&'a self) -> &'a str {
-        match std::ffi::CStr::from_bytes_with_nul(&self.name){
-            Ok(val) => val.to_str().unwrap(),
-            Err(_) => "null"
-        }
-    }
-
     /// Gather color table which is located after last mip texture and 2 bytes
     /// Required for building pixels from indices to color table
     /// Return slice to table consists of 256 RGB values or 256 * 3 bytes
@@ -80,13 +72,19 @@ impl MipTex {
         };
     }
 
-    pub fn get_name(&self) -> String {
-        self.name_as_str().to_string()
-    }
-
     pub fn get_texture(&self, mip_tex: &[u8], mip_level: u8) -> Texture {
         let color_table = self.get_color_table(mip_tex);
         let tex = self.read_texture(mip_tex, color_table, mip_level);
         return tex;
+    }
+
+    pub fn get_name(&self) -> String {
+        let name = &self.name;
+        let index_null = name.iter().position(|&c| c == 0);
+        let name = match index_null {
+            Some(i) => &name[..i],
+            None => name,
+        };
+        return String::from_utf8_lossy(name).into_owned();
     }
 }
