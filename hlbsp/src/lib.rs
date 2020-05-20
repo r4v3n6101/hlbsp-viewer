@@ -25,34 +25,17 @@ impl Neg for Vec3 {
 }
 
 pub fn read_struct<T>(buf: &[u8]) -> T {
-    use std::mem::{size_of, uninitialized};
-    use std::slice::from_raw_parts_mut;
-
-    let mut s: T = unsafe { uninitialized() };
-    let size = size_of::<T>();
-    unsafe {
-        let s_data: &mut [u8] = from_raw_parts_mut(&mut s as *mut _ as *mut u8, size);
-        s_data.copy_from_slice(&buf[0..size]);
-    }
-    return s;
+    unsafe { std::ptr::read(buf.as_ptr() as *const _) }
 }
 
 pub fn read_mul_structs<T>(buf: &[u8]) -> Vec<T> {
-    use std::mem::{size_of, uninitialized};
-    use std::slice::from_raw_parts_mut;
-
-    let size = size_of::<T>();
+    let size = std::mem::size_of::<T>();
     let count = buf.len() / size;
 
     let mut slice: Vec<T> = Vec::with_capacity(count);
     for i in 0..count {
-        let element_offset = i * size;
-        let mut s: T = unsafe { uninitialized() };
-        unsafe {
-            let s_data: &mut [u8] = from_raw_parts_mut(&mut s as *mut _ as *mut u8, size);
-            s_data.copy_from_slice(&buf[element_offset..element_offset + size]);
-        }
-        slice.push(s);
+        let s: T = read_struct(&buf[i * size..(i + 1) * size]);
+        slice.push(s); // read whole code like memcpy
     }
     return slice;
 }
