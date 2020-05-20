@@ -4,8 +4,7 @@ extern crate structopt;
 
 use std::{
     collections::{HashMap, HashSet},
-    fs::read,
-    fs::OpenOptions,
+    fs::{create_dir_all, read, OpenOptions},
     io::{BufWriter, Write},
     iter::Iterator,
     path::{Path, PathBuf},
@@ -44,6 +43,11 @@ fn process(opt: &Opt) {
 
     println!("Prepare data");
     prepare_data(&bsp, &mut uvs, &mut normals, &mut groups);
+
+    if !opt.outputdir.exists() {
+        create_dir_all(&opt.outputdir).unwrap();
+        println!("Create output dir: {:?}", &opt.outputdir);
+    }
 
     println!("Write .obj");
     write_obj(&opt.outputdir, &bsp.vertices, &normals, &uvs, &groups);
@@ -98,7 +102,7 @@ fn write_mtl(outputdir: &PathBuf, wads: &Vec<PathBuf>, miptexs: &Vec<MipTex>, mi
             .iter()
             .filter_map(|entry| {
                 let mip = &wad_buf[entry.file_pos as usize..];
-                let miptex: MipTex = read_struct(mip); 
+                let miptex: MipTex = read_struct(mip);
                 let name = miptex.get_name();
 
                 if textures.contains(&name) {
