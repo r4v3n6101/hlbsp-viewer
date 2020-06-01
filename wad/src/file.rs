@@ -44,25 +44,6 @@ impl WadEntry {
     }
 }
 
-pub struct EntriesIterator<'a, R: BufRead + Seek> {
-    reader: &'a mut R,
-    index: u32,
-    count: u32,
-}
-
-impl<'a, R: BufRead + Seek> Iterator for EntriesIterator<'a, R> {
-    type Item = IOResult<WadEntry>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= self.count {
-            None
-        } else {
-            self.index += 1;
-            Some(WadEntry::read(self.reader))
-        }
-    }
-}
-
 pub struct WadReader<R: BufRead + Seek>(R);
 
 impl<R: BufRead + Seek> From<R> for WadReader<R> {
@@ -86,16 +67,12 @@ impl<R: BufRead + Seek> WadReader<R> {
         }
     }
 
-    pub fn entries(&mut self) -> IOResult<EntriesIterator<R>> {
+    pub fn read_entries(&mut self) -> IOResult<Vec<WadEntry>> {
         self.0.seek(SeekFrom::Start(4))?;
         let count = self.0.read_u32::<LE>()?;
         let offset = self.0.read_u32::<LE>()?;
         self.0.seek(SeekFrom::Start(offset as u64))?;
-        Ok(EntriesIterator {
-            reader: &mut self.0,
-            index: 0,
-            count,
-        })
+        (0..count).map(|_| WadEntry::read(&mut self.0)).collect()
     }
 
     pub fn read_entry(&mut self, entry: &WadEntry) -> IOResult<Vec<u8>> {

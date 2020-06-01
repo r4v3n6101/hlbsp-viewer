@@ -9,14 +9,12 @@ mod test {
 
     #[test]
     fn wad_read() {
-        let file = std::fs::File::open(env!("WAD_TEST")).unwrap();
-        let mut wad_reader = file::WadReader::create(std::io::BufReader::new(file)).unwrap();
-        let count = wad_reader.entries().unwrap().count();
-        println!("{}", count);
-        wad_reader
-            .entries()
-            .unwrap()
-            .map(|e| e.unwrap().name)
-            .for_each(|n| println!("{:?}", n));
+        let data = std::io::Cursor::new(std::fs::read(env!("WAD_TEST")).unwrap());
+        let mut wad_reader = file::WadReader::create(data).unwrap();
+        let entries = wad_reader.read_entries().unwrap();
+        assert_eq!(entries.len(), 3116);
+        for e in &entries {
+            println!("{:?}", e.name);
+        }
     }
 }
