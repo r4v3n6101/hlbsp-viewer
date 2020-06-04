@@ -1,5 +1,6 @@
 const MAX_NAME: usize = 16;
 
+use crate::read_cstring;
 use byteorder::{ReadBytesExt, LE};
 use std::{
     ffi::CString,
@@ -23,15 +24,8 @@ impl WadEntry {
         let size = reader.read_u32::<LE>()?;
         let entry_type = reader.read_u8()?;
         let compression = reader.read_u8()? != 0;
-
-        reader.read_u16::<LE>()?; // dummy
-
-        let mut name = vec![];
-        let name_readed = reader.read_until(b'\0', &mut name)?;
-        name.pop();
-        let name = CString::new(name).map_err(|e| IOError::new(ErrorKind::InvalidData, e))?;
-        let unread_str = (MAX_NAME - name_readed) as i64;
-        reader.seek(SeekFrom::Current(unread_str))?;
+        let _dummy = reader.read_u16::<LE>()?;
+        let name = read_cstring(reader, MAX_NAME)?;
 
         Ok(WadEntry {
             name,
@@ -67,7 +61,7 @@ impl<R: BufRead + Seek> WadReader<R> {
         }
     }
 
-    pub fn read_entries(&mut self) -> IOResult<Vec<WadEntry>> {
+    pub fn entries(&mut self) -> IOResult<Vec<WadEntry>> {
         self.0.seek(SeekFrom::Start(4))?;
         let count = self.0.read_u32::<LE>()?;
         let offset = self.0.read_u32::<LE>()?;
@@ -76,8 +70,7 @@ impl<R: BufRead + Seek> WadReader<R> {
     }
 
     pub fn read_entry(&mut self, entry: &WadEntry) -> IOResult<Vec<u8>> {
-        let data_offset = size_of::<WadEntry>() + entry.file_pos as usize;
-        self.0.seek(SeekFrom::Start(data_offset as u64))?;
+        self.0.seek(SeekFrom::Start(entry.file_pos as u64))?;
         let mut data = vec![0; entry.size as usize];
         self.0.read_exact(&mut data)?;
         Ok(data)
