@@ -5,7 +5,6 @@ use byteorder::{ReadBytesExt, LE};
 use std::{
     ffi::CString,
     io::{BufRead, Error as IOError, ErrorKind, Result as IOResult, Seek, SeekFrom},
-    mem::size_of,
 };
 
 pub struct WadEntry {

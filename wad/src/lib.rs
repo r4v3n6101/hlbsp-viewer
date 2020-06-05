@@ -28,10 +28,7 @@ mod test {
         let data = std::io::Cursor::new(std::fs::read(env!("WAD_TEST")).unwrap());
         let mut wad_reader = file::WadReader::create(data).unwrap();
         let entries = wad_reader.entries().unwrap();
-        assert_eq!(entries.len(), 32);
-        for e in &entries {
-            println!("{:?}", e.name);
-        }
+        assert_eq!(entries.len(), 3116);
     }
 
     #[test]
