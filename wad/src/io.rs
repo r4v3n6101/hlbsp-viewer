@@ -1,6 +1,6 @@
 const MAX_NAME: usize = 16;
 
-use crate::read_cstring;
+use cstr::read_cstring;
 use byteorder::{ReadBytesExt, LE};
 use std::{
     ffi::CString,
