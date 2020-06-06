@@ -4,19 +4,37 @@ use std::io::{Error as IOError, ErrorKind, Read, Result as IOResult, Seek, SeekF
 const HL_BSP_VERSION: u32 = 30;
 const MAX_LUMPS: usize = 15;
 
+pub enum LumpType {
+    Entities,
+    Planes,
+    Textures,
+    Vertices,
+    Visibility,
+    Nodes,
+    TexInfo,
+    Faces,
+    Lighting,
+    Clipnodes,
+    Leaves,
+    Marksurfaces,
+    Edges,
+    Surfegdes,
+    Models,
+}
+
 #[derive(Clone, Copy, Default)]
 struct Lump {
     offset: u32,
     length: u32,
 }
 
-struct BspMapReader<R: Read + Seek> {
+pub struct BspMapReader<R: Read + Seek> {
     reader: R,
     lumps: [Lump; MAX_LUMPS],
 }
 
 impl<R: Read + Seek> BspMapReader<R> {
-    fn create(mut reader: R) -> IOResult<BspMapReader<R>> {
+    pub fn create(mut reader: R) -> IOResult<BspMapReader<R>> {
         let header = reader.read_u32::<LE>()?;
         if header != HL_BSP_VERSION {
             return Err(IOError::new(
@@ -32,12 +50,12 @@ impl<R: Read + Seek> BspMapReader<R> {
                 length: reader.read_u32::<LE>()?,
             }
         }
+
         Ok(BspMapReader { reader, lumps })
     }
 
-    // TODO : replace index with enum
-    fn read_lump(&mut self, index: usize) -> IOResult<Vec<u8>> {
-        let lump = &self.lumps[index];
+    pub fn read_lump(&mut self, index: LumpType) -> IOResult<Vec<u8>> {
+        let lump = &self.lumps[index as usize];
         self.reader.seek(SeekFrom::Start(lump.offset as u64))?;
         let mut data = vec![0u8; lump.length as usize];
         self.reader.read_exact(&mut data)?;
