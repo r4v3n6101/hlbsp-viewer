@@ -3,8 +3,10 @@ const MAX_NAME: usize = 16;
 use byteorder::{ReadBytesExt, LE};
 use cstr::read_cstring;
 use std::{
-    ffi::CString,
+    cell::RefCell,
+    ffi::{CStr, CString},
     io::{Error as IOError, ErrorKind, Read, Result as IOResult, Seek, SeekFrom},
+    slice::Iter,
 };
 
 pub struct WadEntry {
@@ -37,12 +39,9 @@ impl WadEntry {
     }
 }
 
-pub struct WadReader<R: Read + Seek>(R);
-
-impl<R: Read + Seek> From<R> for WadReader<R> {
-    fn from(reader: R) -> WadReader<R> {
-        WadReader(reader)
-    }
+pub struct WadReader<R: Read + Seek> {
+    reader: RefCell<R>,
+    entries: Vec<WadEntry>,
 }
 
 impl<R: Read + Seek> WadReader<R> {
@@ -51,7 +50,15 @@ impl<R: Read + Seek> WadReader<R> {
         let mut header = [0u8; 4];
         reader.read_exact(&mut header)?;
         if header == [b'W', b'A', b'D', b'3'] {
-            Ok(WadReader::from(reader))
+            let count = reader.read_u32::<LE>()?;
+            let offset = reader.read_u32::<LE>()?;
+            reader.seek(SeekFrom::Start(offset as u64))?;
+            let entries: IOResult<Vec<WadEntry>> =
+                (0..count).map(|_| WadEntry::read(&mut reader)).collect();
+            Ok(WadReader {
+                reader: RefCell::new(reader),
+                entries: entries?,
+            })
         } else {
             Err(IOError::new(
                 ErrorKind::InvalidData,
@@ -60,18 +67,20 @@ impl<R: Read + Seek> WadReader<R> {
         }
     }
 
-    pub fn entries(&mut self) -> IOResult<Vec<WadEntry>> {
-        self.0.seek(SeekFrom::Start(4))?;
-        let count = self.0.read_u32::<LE>()?;
-        let offset = self.0.read_u32::<LE>()?;
-        self.0.seek(SeekFrom::Start(offset as u64))?;
-        (0..count).map(|_| WadEntry::read(&mut self.0)).collect()
+    pub fn entries(&self) -> Iter<WadEntry> {
+        self.entries.iter()
     }
 
-    pub fn read_entry(&mut self, entry: &WadEntry) -> IOResult<Vec<u8>> {
-        self.0.seek(SeekFrom::Start(entry.file_pos as u64))?;
+    pub fn find_entry(&self, name: &CStr) -> Option<&WadEntry> {
+        self.entries().find(|&entry| entry.name.as_c_str() == name)
+    }
+
+    pub fn read_entry(&self, entry: &WadEntry) -> IOResult<Vec<u8>> {
+        self.reader
+            .borrow_mut()
+            .seek(SeekFrom::Start(entry.file_pos as u64))?;
         let mut data = vec![0; entry.size as usize];
-        self.0.read_exact(&mut data)?;
+        self.reader.borrow_mut().read_exact(&mut data)?;
         Ok(data)
     }
 }

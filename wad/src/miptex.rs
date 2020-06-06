@@ -1,5 +1,5 @@
-use cstr::read_cstring;
 use byteorder::{ReadBytesExt, LE};
+use cstr::read_cstring;
 use std::{
     ffi::CString,
     io::{Cursor, Read, Result as IOResult, Seek, SeekFrom},

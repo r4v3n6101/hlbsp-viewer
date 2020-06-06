@@ -1,8 +1,5 @@
 use byteorder::{ReadBytesExt, LE};
-use std::{
-    ffi::CString,
-    io::{BufRead, Error as IOError, ErrorKind, Result as IOResult, Seek},
-};
+use std::io::{Error as IOError, ErrorKind, Read, Result as IOResult, Seek, SeekFrom};
 
 const HL_BSP_VERSION: u32 = 30;
 const MAX_LUMPS: usize = 15;
@@ -13,22 +10,37 @@ struct Lump {
     length: u32,
 }
 
-fn read_bsp<R: BufRead + Seek>(mut reader: R) -> IOResult<()> {
-    let header = reader.read_u32::<LE>()?;
-    if header != HL_BSP_VERSION {
-        return Err(IOError::new(
-            ErrorKind::InvalidData,
-            format!("Wrong bsp header {}, expected {}", header, HL_BSP_VERSION),
-        ));
-    }
+struct BspMapReader<R: Read + Seek> {
+    reader: R,
+    lumps: [Lump; MAX_LUMPS],
+}
 
-    let mut lumps = [Lump::default(); MAX_LUMPS];
-    for lump in &mut lumps {
-        *lump = Lump {
-            offset: reader.read_u32::<LE>()?,
-            length: reader.read_u32::<LE>()?,
+impl<R: Read + Seek> BspMapReader<R> {
+    fn create(mut reader: R) -> IOResult<BspMapReader<R>> {
+        let header = reader.read_u32::<LE>()?;
+        if header != HL_BSP_VERSION {
+            return Err(IOError::new(
+                ErrorKind::InvalidData,
+                format!("Wrong bsp header {}, expected {}", header, HL_BSP_VERSION),
+            ));
         }
+
+        let mut lumps = [Lump::default(); MAX_LUMPS];
+        for lump in &mut lumps {
+            *lump = Lump {
+                offset: reader.read_u32::<LE>()?,
+                length: reader.read_u32::<LE>()?,
+            }
+        }
+        Ok(BspMapReader { reader, lumps })
     }
 
-    todo!();
+    // TODO : replace index with enum
+    fn read_lump(&mut self, index: usize) -> IOResult<Vec<u8>> {
+        let lump = &self.lumps[index];
+        self.reader.seek(SeekFrom::Start(lump.offset as u64))?;
+        let mut data = vec![0u8; lump.length as usize];
+        self.reader.read_exact(&mut data)?;
+        Ok(data)
+    }
 }
