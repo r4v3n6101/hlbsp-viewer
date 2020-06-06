@@ -1,10 +1,10 @@
 const MAX_NAME: usize = 16;
 
-use cstr::read_cstring;
 use byteorder::{ReadBytesExt, LE};
+use cstr::read_cstring;
 use std::{
     ffi::CString,
-    io::{BufRead, Error as IOError, ErrorKind, Result as IOResult, Seek, SeekFrom},
+    io::{Error as IOError, ErrorKind, Read, Result as IOResult, Seek, SeekFrom},
 };
 
 pub struct WadEntry {
@@ -17,7 +17,7 @@ pub struct WadEntry {
 }
 
 impl WadEntry {
-    fn read<T: BufRead + Seek>(reader: &mut T) -> IOResult<WadEntry> {
+    fn read<T: Read + Seek>(reader: &mut T) -> IOResult<WadEntry> {
         let file_pos = reader.read_u32::<LE>()?;
         let disk_size = reader.read_u32::<LE>()?;
         let size = reader.read_u32::<LE>()?;
@@ -37,15 +37,15 @@ impl WadEntry {
     }
 }
 
-pub struct WadReader<R: BufRead + Seek>(R);
+pub struct WadReader<R: Read + Seek>(R);
 
-impl<R: BufRead + Seek> From<R> for WadReader<R> {
+impl<R: Read + Seek> From<R> for WadReader<R> {
     fn from(reader: R) -> WadReader<R> {
         WadReader(reader)
     }
 }
 
-impl<R: BufRead + Seek> WadReader<R> {
+impl<R: Read + Seek> WadReader<R> {
     pub fn create(mut reader: R) -> IOResult<WadReader<R>> {
         reader.seek(SeekFrom::Start(0))?;
         let mut header = [0u8; 4];
