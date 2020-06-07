@@ -1,6 +1,6 @@
 use std::{
     ffi::CString,
-    io::{Error as IOError, ErrorKind, Read, Result as IOResult},
+    io::{Read, Result as IOResult},
 };
 
 pub fn read_cstring<T: Read>(reader: &mut T, max_size: usize) -> IOResult<CString> {
@@ -9,8 +9,7 @@ pub fn read_cstring<T: Read>(reader: &mut T, max_size: usize) -> IOResult<CStrin
     Ok(match vec.iter().position(|&c| c == b'\0') {
         Some(nul_pos) => CString::new(vec[..nul_pos].to_vec()),
         None => CString::new(vec),
-    }
-    .map_err(|e| IOError::new(ErrorKind::InvalidData, e))?)
+    }?)
 }
 
 #[cfg(test)]

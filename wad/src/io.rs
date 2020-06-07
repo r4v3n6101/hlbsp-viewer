@@ -62,7 +62,7 @@ impl<R: Read + Seek> WadReader<R> {
         } else {
             Err(IOError::new(
                 ErrorKind::InvalidData,
-                format!("Wrong header: {:?}", header),
+                format!("Wrong header: {:?}", header), // TODO : remove debug
             ))
         }
     }
