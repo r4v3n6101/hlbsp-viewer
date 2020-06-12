@@ -1,41 +1,37 @@
-const MAX_NAME: usize = 16;
+const WAD3_MAGIC: [u8; 4] = [b'W', b'A', b'D', b'3'];
 
-use byteorder::{ReadBytesExt, LE};
-use cstr::read_cstring;
+use crate::name::deserialize_fixed_len_cstring;
+use bincode::{deserialize_from, ErrorKind, Result as BincodeResult};
+use serde::Deserialize;
 use std::{
     cell::RefCell,
     ffi::{CStr, CString},
-    io::{Error as IOError, ErrorKind, Read, Result as IOResult, Seek, SeekFrom},
-    slice::Iter,
+    io::{Read, Result as IOResult, Seek, SeekFrom},
 };
 
+#[derive(Debug, Deserialize)]
 pub struct WadEntry {
-    pub name: CString,
-    pub entry_type: u8,
-    pub size: u32,
     file_pos: u32,
     disk_size: u32,
+    size: u32,
+    entry_type: u8,
     compression: bool,
+    _dummy: u16,
+    #[serde(deserialize_with = "deserialize_fixed_len_cstring")]
+    name: CString,
 }
 
 impl WadEntry {
-    fn read<T: Read + Seek>(reader: &mut T) -> IOResult<WadEntry> {
-        let file_pos = reader.read_u32::<LE>()?;
-        let disk_size = reader.read_u32::<LE>()?;
-        let size = reader.read_u32::<LE>()?;
-        let entry_type = reader.read_u8()?;
-        let compression = reader.read_u8()? != 0;
-        let _dummy = reader.read_u16::<LE>()?;
-        let name = read_cstring(reader, MAX_NAME)?;
+    pub fn name(&self) -> &CStr {
+        self.name.as_c_str()
+    }
 
-        Ok(WadEntry {
-            name,
-            entry_type,
-            size,
-            file_pos,
-            disk_size,
-            compression,
-        })
+    pub const fn size(&self) -> u32 {
+        self.size
+    }
+
+    pub const fn entry_type(&self) -> u8 {
+        self.entry_type
     }
 }
 
@@ -45,34 +41,33 @@ pub struct WadReader<R: Read + Seek> {
 }
 
 impl<R: Read + Seek> WadReader<R> {
-    pub fn create(mut reader: R) -> IOResult<WadReader<R>> {
-        reader.seek(SeekFrom::Start(0))?;
-        let mut header = [0u8; 4];
-        reader.read_exact(&mut header)?;
-        if header == [b'W', b'A', b'D', b'3'] {
-            let count = reader.read_u32::<LE>()?;
-            let offset = reader.read_u32::<LE>()?;
+    pub fn create(mut reader: R) -> BincodeResult<WadReader<R>> {
+        #[derive(Deserialize)]
+        struct Header([u8; 4], u32, u32);
+        let Header(magic, count, offset) = deserialize_from(&mut reader).unwrap();
+        if magic == WAD3_MAGIC {
             reader.seek(SeekFrom::Start(offset as u64))?;
-            let entries: IOResult<Vec<WadEntry>> =
-                (0..count).map(|_| WadEntry::read(&mut reader)).collect();
+            let entries: BincodeResult<Vec<WadEntry>> =
+                (0..count).map(|_| deserialize_from(&mut reader)).collect();
             Ok(WadReader {
                 reader: RefCell::new(reader),
                 entries: entries?,
             })
         } else {
-            Err(IOError::new(
-                ErrorKind::InvalidData,
-                format!("Wrong header: {:?}", header), // TODO : remove debug
-            ))
+            let msg = format!(
+                "Wrong WAD magic: found `{:?}`, expected `{:?}`",
+                magic, WAD3_MAGIC
+            );
+            Err(ErrorKind::Custom(msg).into())
         }
     }
 
-    pub fn entries(&self) -> Iter<WadEntry> {
-        self.entries.iter()
+    pub fn entries(&self) -> &[WadEntry] {
+        self.entries.as_slice()
     }
 
     pub fn find_entry(&self, name: &CStr) -> Option<&WadEntry> {
-        self.entries().find(|&entry| entry.name.as_c_str() == name)
+        self.entries().iter().find(|&entry| entry.name() == name)
     }
 
     pub fn read_entry(&self, entry: &WadEntry) -> IOResult<Vec<u8>> {

@@ -1,7 +1,3 @@
-extern crate cstr;
-extern crate byteorder;
-extern crate cgmath;
-
 pub mod io;
 pub mod lump;
 

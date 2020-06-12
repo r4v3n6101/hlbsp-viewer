@@ -1,8 +1,6 @@
-extern crate byteorder;
-extern crate cstr;
-
 pub mod io;
 pub mod miptex;
+mod name;
 
 #[cfg(test)]
 mod test {
@@ -21,7 +19,8 @@ mod test {
     fn read_wad_miptex() {
         let data = std::io::Cursor::new(std::fs::read(env!("WAD_TEST")).unwrap());
         let wad_reader = io::WadReader::create(data).unwrap();
-        wad_reader.entries().for_each(|data| {
+        wad_reader.entries().iter().for_each(|data| {
+            println!("WadEntry name: {:?}", data.name().to_str().unwrap());
             let data = wad_reader.read_entry(data);
             let miptex = miptex::MipTexture::new(data.unwrap()).unwrap();
             println!("MipTex name: {:?}", miptex.name);
