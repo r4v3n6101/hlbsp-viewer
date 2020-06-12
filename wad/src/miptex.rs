@@ -1,7 +1,11 @@
 use crate::name::deserialize_fixed_len_cstring;
+use arraylib::Array;
 use bincode::{deserialize_from, Result as BincodeResult};
 use serde::Deserialize;
-use std::{ffi::CString, io::Cursor};
+use std::{
+    ffi::CString,
+    io::{Cursor, Read, Seek, SeekFrom},
+};
 
 const MIP_TEXTURES: usize = 4;
 
@@ -26,17 +30,14 @@ impl MipTexture {
             offsets: [u32; 4],
         }
         let mut cursor = Cursor::new(data);
-        let mip_header: MipTexHeader = deserialize_from(&mut cursor)?;
-        println!("{:?}", mip_header);
+        let MipTexHeader {
+            name,
+            width,
+            height,
+            offsets,
+        } = deserialize_from(&mut cursor)?;
 
-        Ok(MipTexture {
-            name: mip_header.name,
-            width: mip_header.width,
-            height: mip_header.height,
-            color_indices: [vec![], vec![], vec![], vec![]],
-            color_table: [0; 256 * 3],
-        })
-        /*let mut color_indices = [vec![], vec![], vec![], vec![]]; // TODO : simplify
+        let mut color_indices = <[_; MIP_TEXTURES]>::from_fn(|_| vec![]);
         for i in 0..MIP_TEXTURES {
             let offset = offsets[i];
             cursor.seek(SeekFrom::Start(offset as u64))?;
@@ -55,6 +56,6 @@ impl MipTexture {
             height,
             color_indices,
             color_table,
-        })*/
+        })
     }
 }
