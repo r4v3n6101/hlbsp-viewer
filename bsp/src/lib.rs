@@ -1,5 +1,4 @@
 pub mod io;
-pub mod lump;
 pub mod map;
 
 #[cfg(test)]
