@@ -45,20 +45,23 @@ impl<R: Read + Seek> WadReader<R> {
         #[derive(Deserialize)]
         struct Header([u8; 4], u32, u32);
         let Header(magic, count, offset) = deserialize_from(&mut reader).unwrap();
-        if magic == WAD3_MAGIC {
-            reader.seek(SeekFrom::Start(offset as u64))?;
-            let entries: BincodeResult<Vec<WadEntry>> =
-                (0..count).map(|_| deserialize_from(&mut reader)).collect();
-            Ok(WadReader {
-                reader: RefCell::new(reader),
-                entries: entries?,
-            })
-        } else {
-            let msg = format!(
-                "Wrong WAD magic: found `{:?}`, expected `{:?}`",
-                magic, WAD3_MAGIC
-            );
-            Err(ErrorKind::Custom(msg).into())
+        match magic {
+            WAD3_MAGIC => {
+                reader.seek(SeekFrom::Start(offset as u64))?;
+                let entries: BincodeResult<Vec<WadEntry>> =
+                    (0..count).map(|_| deserialize_from(&mut reader)).collect();
+                Ok(WadReader {
+                    reader: RefCell::new(reader),
+                    entries: entries?,
+                })
+            }
+            _ => {
+                let msg = format!(
+                    "Wrong WAD magic: found `{:?}`, expected `{:?}`",
+                    magic, WAD3_MAGIC
+                );
+                Err(ErrorKind::Custom(msg).into())
+            }
         }
     }
 
@@ -67,6 +70,7 @@ impl<R: Read + Seek> WadReader<R> {
     }
 
     pub fn find_entry(&self, name: &CStr) -> Option<&WadEntry> {
+        // TODO : inefficient due to O(N) search, consider using HashSet instead of Vec
         self.entries().iter().find(|&entry| entry.name() == name)
     }
 

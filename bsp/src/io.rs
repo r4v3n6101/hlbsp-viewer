@@ -1,5 +1,7 @@
-use byteorder::{ReadBytesExt, LE};
-use std::io::{Error as IOError, ErrorKind, Read, Result as IOResult, Seek, SeekFrom};
+use bincode2::{deserialize_from, ErrorKind, Result as BincodeResult};
+use serde::Deserialize;
+use std::cell::RefCell;
+use std::io::{Read, Result as IOResult, Seek, SeekFrom};
 
 const HL_BSP_VERSION: u32 = 30;
 const MAX_LUMPS: usize = 15;
@@ -22,43 +24,42 @@ pub enum LumpType {
     Models,
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Deserialize)]
 struct Lump {
     offset: u32,
     length: u32,
 }
 
 pub struct BspMapReader<R: Read + Seek> {
-    reader: R,
+    reader: RefCell<R>,
     lumps: [Lump; MAX_LUMPS],
 }
 
 impl<R: Read + Seek> BspMapReader<R> {
-    pub fn create(mut reader: R) -> IOResult<BspMapReader<R>> {
-        let header = reader.read_u32::<LE>()?;
-        if header != HL_BSP_VERSION {
-            return Err(IOError::new(
-                ErrorKind::InvalidData,
-                format!("Wrong bsp header {}, expected {}", header, HL_BSP_VERSION),
-            ));
-        }
-
-        let mut lumps = [Lump::default(); MAX_LUMPS];
-        for lump in &mut lumps {
-            *lump = Lump {
-                offset: reader.read_u32::<LE>()?,
-                length: reader.read_u32::<LE>()?,
+    pub fn create(mut reader: R) -> BincodeResult<BspMapReader<R>> {
+        let (version, lumps) = deserialize_from(&mut reader)?;
+        match version {
+            HL_BSP_VERSION => Ok(BspMapReader {
+                reader: RefCell::new(reader),
+                lumps,
+            }),
+            _ => {
+                let msg = format!(
+                    "Wrong HL BSP version: found {}, expected {}",
+                    version, HL_BSP_VERSION
+                );
+                Err(ErrorKind::Custom(msg).into())
             }
         }
-
-        Ok(BspMapReader { reader, lumps })
     }
 
-    pub fn read_lump(&mut self, index: LumpType) -> IOResult<Vec<u8>> {
+    pub fn read_lump(&self, index: LumpType) -> IOResult<Vec<u8>> {
         let lump = &self.lumps[index as usize];
-        self.reader.seek(SeekFrom::Start(lump.offset as u64))?;
+        self.reader
+            .borrow_mut()
+            .seek(SeekFrom::Start(lump.offset as u64))?;
         let mut data = vec![0u8; lump.length as usize];
-        self.reader.read_exact(&mut data)?;
+        self.reader.borrow_mut().read_exact(&mut data)?;
         Ok(data)
     }
 }

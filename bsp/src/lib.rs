@@ -8,12 +8,10 @@ mod tests {
 
     #[test]
     fn test_smth() {
-        use lump::LumpReader;
-        use std::ffi::CString;
         let file = std::fs::File::open(env!("BSP_TEST")).unwrap();
-        let mut ents = io::BspMapReader::create(file).unwrap();
+        let ents = io::BspMapReader::create(file).unwrap();
         let lump = ents.read_lump(io::LumpType::Entities).unwrap();
-        let cstr: CString = lump::Entity::read(lump).unwrap();
+        let cstr = lump::read_entity(lump).unwrap();
         println!("{}", cstr.to_str().unwrap());
     }
 }
