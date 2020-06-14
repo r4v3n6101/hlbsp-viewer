@@ -1,7 +1,9 @@
 use bincode2::{deserialize_from, ErrorKind, Result as BincodeResult};
 use serde::Deserialize;
-use std::cell::RefCell;
-use std::io::{Read, Result as IOResult, Seek, SeekFrom};
+use std::{
+    cell::RefCell,
+    io::{Read, Result as IOResult, Seek, SeekFrom},
+};
 
 const HL_BSP_VERSION: u32 = 30;
 const MAX_LUMPS: usize = 15;

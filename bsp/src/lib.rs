@@ -1,5 +1,6 @@
 pub mod io;
 pub mod lump;
+pub mod map;
 
 #[cfg(test)]
 mod tests {
@@ -9,9 +10,8 @@ mod tests {
     #[test]
     fn test_smth() {
         let file = std::fs::File::open(env!("BSP_TEST")).unwrap();
-        let ents = io::BspMapReader::create(file).unwrap();
-        let lump = ents.read_lump(io::LumpType::Entities).unwrap();
-        let cstr = lump::read_entity(lump).unwrap();
-        println!("{}", cstr.to_str().unwrap());
+        let reader = io::BspMapReader::create(file).unwrap();
+        let map = map::Map::new(&reader).unwrap();
+        println!("{:?}", map);
     }
 }

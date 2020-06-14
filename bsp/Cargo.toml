@@ -7,4 +7,3 @@ edition = "2018"
 [dependencies]
 serde = { version = "*", features = ["derive"] }
 bincode2 = "*"
-cgmath = "*"
