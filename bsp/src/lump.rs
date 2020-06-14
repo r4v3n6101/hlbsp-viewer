@@ -1,10 +1,11 @@
-use bincode2::{deserialize_from, Result as BincodeResult};
+use bincode2::{config, deserialize_from, LengthOption, Result as BincodeResult};
 use serde::de::DeserializeOwned;
 use std::{
     ffi::{CString, NulError},
     io::Cursor,
     mem::size_of,
 };
+use wad::miptex::MipTexture;
 
 pub fn read_entity(data: Vec<u8>) -> Result<CString, NulError> {
     let mut data = data; // TODO : excess copy, will be removed
@@ -22,11 +23,11 @@ pub fn read_unsized<T: DeserializeOwned>(data: Vec<u8>) -> BincodeResult<Vec<T>>
     Ok(out)
 }
 
-pub fn read_miptexs(data: Vec<u8>) -> BincodeResult<()> {
-    let mut cursor = Cursor::new(data);
-    let offsets: Vec<u32> = deserialize_from(&mut cursor)?;
-    let offsets: Vec<usize> = offsets.into_iter().map(|v| v as usize).collect();
-    // TODO : decide when read from WAD/or from BSP
-
-    Ok(())
+pub fn read_miptexs(data: Vec<u8>) -> BincodeResult<Vec<MipTexture>> {
+    config()
+        .array_length(LengthOption::U32)
+        .deserialize::<Vec<u32>>(&data)?
+        .into_iter()
+        .map(|offset| MipTexture::new(&data[offset as usize..]))
+        .collect()
 }

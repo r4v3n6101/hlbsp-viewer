@@ -1,6 +1,6 @@
 use crate::name::deserialize_fixed_len_cstring;
 use arraylib::Array;
-use bincode::{deserialize, Result as BincodeResult};
+use bincode2::{deserialize, Result as BincodeResult};
 use serde::Deserialize;
 use std::ffi::CString;
 

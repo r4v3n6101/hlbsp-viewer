@@ -1,7 +1,7 @@
 const WAD3_MAGIC: [u8; 4] = [b'W', b'A', b'D', b'3'];
 
 use crate::name::deserialize_fixed_len_cstring;
-use bincode::{deserialize_from, ErrorKind, Result as BincodeResult};
+use bincode2::{deserialize_from, ErrorKind, Result as BincodeResult};
 use serde::Deserialize;
 use std::{
     cell::RefCell,

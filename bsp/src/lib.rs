@@ -12,6 +12,6 @@ mod tests {
         let file = std::fs::File::open(env!("BSP_TEST")).unwrap();
         let reader = io::BspMapReader::create(file).unwrap();
         let map = map::Map::new(&reader).unwrap();
-        println!("{:?}", map);
+        assert!(map.textures().iter().all(|tex| tex.color_table.is_none()));
     }
 }
