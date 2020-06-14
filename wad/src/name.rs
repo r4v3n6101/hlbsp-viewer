@@ -9,7 +9,10 @@ struct CName([u8; MAX_NAME]);
 impl Into<CString> for CName {
     fn into(self) -> CString {
         let name = self.0;
-        let size = name.iter().position(|&b| b == 0).unwrap_or_else(|| name.len());
+        let size = name
+            .iter()
+            .position(|&b| b == 0)
+            .unwrap_or_else(|| name.len());
         unsafe { CString::from_vec_unchecked(name[..size].to_vec()) }
     }
 }

@@ -1,86 +1,15 @@
 use crate::io::{BspMapReader, LumpType};
 use bincode2::Result as BincodeResult;
-use serde::Deserialize;
 use std::{
     ffi::CString,
     io::{Read, Seek},
 };
 use wad::miptex::MipTexture;
 
-mod internal;
-use internal::*;
-
-const MAX_MAP_HULLS: usize = 4;
-
-pub type Vec3 = (f32, f32, f32);
-type Edge = (u16, u16);
-type AABB<T> = [T; 6];
-type Surfedge = i32;
-type Marksurface = u16;
-type LightColor = Vec3;
-
-#[derive(Deserialize)]
-struct Plane {
-    normal: Vec3,
-    distance: f32,
-    ptype: i32,
-}
-
-#[derive(Deserialize)]
-struct TexInfo {
-    vs: Vec3,
-    vs_shift: f32,
-    vt: Vec3,
-    vt_shift: f32,
-    miptex_indes: u32,
-    flags: u32,
-}
-
-#[derive(Deserialize)]
-struct Face {
-    plane_index: u16,
-    plane_side: u16,
-    first_edge: u16,
-    edges_num: u16,
-    texinfo_index: u16,
-    styles: [u8; 4],
-    lightmap_offset: u32,
-}
-
-#[derive(Deserialize)]
-struct Model {
-    bounding_box: AABB<f32>,
-    origin: Vec3,
-    headnodes: [u32; MAX_MAP_HULLS],
-    vis_leaves: u32,
-    first_face: u32,
-    faces_num: u32,
-}
-
-#[derive(Deserialize)]
-struct Clipnode {
-    plane: i32,
-    children: [i16; 2],
-}
-
-#[derive(Deserialize)]
-struct Leaf {
-    contents: i32,
-    vis_offset: i32,
-    bounding_box: AABB<i16>,
-    first_marksurface: u16,
-    marksurfaces_num: u16,
-    ambient_levels: [u8; 4],
-}
-
-#[derive(Deserialize)]
-struct Node {
-    plane_index: u32,
-    children: [i16; 2],
-    bounding_box: AABB<i16>,
-    first_face: u16,
-    faces_num: u16,
-}
+mod lumps;
+use lumps::*;
+mod types;
+use types::*;
 
 pub struct Map {
     entities: CString,
