@@ -111,4 +111,11 @@ impl Map {
     pub fn textures(&self) -> &[MipTexture] {
         &self.textures
     }
+
+    pub fn replace_empty_textures<F: Fn(&mut MipTexture)>(&mut self, f: F) {
+        self.textures
+            .iter_mut()
+            .filter(|tex| tex.color_indices.is_none())
+            .for_each(|tex| f(tex));
+    }
 }
