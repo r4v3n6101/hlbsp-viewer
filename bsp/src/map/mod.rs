@@ -11,22 +11,23 @@ use lumps::*;
 mod types;
 use types::*;
 
+// TODO : hide inner fields
 pub struct Map {
-    entities: CString,
-    planes: Vec<Plane>,
-    textures: Vec<MipTexture>,
-    vertices: Vec<Vec3>,
-    visibility: Vec<u8>,
-    nodes: Vec<Node>,
-    texinfo: Vec<TexInfo>,
-    faces: Vec<Face>,
-    lightmap: Vec<LightColor>,
-    clipnodes: Vec<Clipnode>,
-    leaves: Vec<Leaf>,
-    marksurfaces: Vec<Marksurface>,
-    edges: Vec<Edge>,
-    surfedges: Vec<Surfedge>,
-    models: Vec<Model>,
+    pub entities: CString,
+    pub planes: Vec<Plane>,
+    pub textures: Vec<MipTexture>,
+    pub vertices: Vec<Vec3>,
+    pub visibility: Vec<u8>,
+    pub nodes: Vec<Node>,
+    pub texinfo: Vec<TexInfo>,
+    pub faces: Vec<Face>,
+    pub lightmap: Vec<LightColor>,
+    pub clipnodes: Vec<Clipnode>,
+    pub leaves: Vec<Leaf>,
+    pub marksurfaces: Vec<Marksurface>,
+    pub edges: Vec<Edge>,
+    pub surfedges: Vec<Surfedge>,
+    pub models: Vec<Model>,
 }
 
 impl Map {
@@ -50,13 +51,7 @@ impl Map {
         })
     }
 
-    pub fn vertices(&self) -> &[Vec3] {
-        &self.vertices
-    }
-
-    pub fn textures(&self) -> &[MipTexture] {
-        &self.textures
-    }
+    // TODO : make impls for acquiring vertices/textures/and so on
 
     pub fn replace_empty_textures<F: Fn(&mut MipTexture)>(&mut self, f: F) {
         self.textures
