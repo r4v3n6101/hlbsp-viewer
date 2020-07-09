@@ -40,18 +40,17 @@ pub struct BspMapReader<R: Read + Seek> {
 impl<R: Read + Seek> BspMapReader<R> {
     pub fn create(mut reader: R) -> BincodeResult<BspMapReader<R>> {
         let (version, lumps) = deserialize_from(&mut reader)?;
-        match version {
-            HL_BSP_VERSION => Ok(BspMapReader {
+        if let HL_BSP_VERSION = version {
+            Ok(BspMapReader {
                 reader: RefCell::new(reader),
                 lumps,
-            }),
-            _ => {
-                let msg = format!(
-                    "Wrong HL BSP version: found {}, expected {}",
-                    version, HL_BSP_VERSION
-                );
-                Err(ErrorKind::Custom(msg).into())
-            }
+            })
+        } else {
+            let msg = format!(
+                "Wrong HL BSP version: found {}, expected {}",
+                version, HL_BSP_VERSION
+            );
+            Err(ErrorKind::Custom(msg).into())
         }
     }
 
@@ -59,8 +58,8 @@ impl<R: Read + Seek> BspMapReader<R> {
         let lump = &self.lumps[index as usize];
         self.reader
             .borrow_mut()
-            .seek(SeekFrom::Start(lump.offset as u64))?;
-        let mut data = vec![0u8; lump.length as usize];
+            .seek(SeekFrom::Start(u64::from(lump.offset)))?;
+        let mut data = vec![0_u8; lump.length as usize];
         self.reader.borrow_mut().read_exact(&mut data)?;
         Ok(data)
     }

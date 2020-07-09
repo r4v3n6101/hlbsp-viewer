@@ -45,23 +45,20 @@ impl<R: Read + Seek> WadReader<R> {
         #[derive(Deserialize)]
         struct Header([u8; 4], u32, u32);
         let Header(magic, count, offset) = deserialize_from(&mut reader).unwrap();
-        match magic {
-            WAD3_MAGIC => {
-                reader.seek(SeekFrom::Start(offset as u64))?;
-                let entries: BincodeResult<Vec<WadEntry>> =
-                    (0..count).map(|_| deserialize_from(&mut reader)).collect();
-                Ok(WadReader {
-                    reader: RefCell::new(reader),
-                    entries: entries?,
-                })
-            }
-            _ => {
-                let msg = format!(
-                    "Wrong WAD magic: found `{:?}`, expected `{:?}`",
-                    magic, WAD3_MAGIC
-                );
-                Err(ErrorKind::Custom(msg).into())
-            }
+        if let WAD3_MAGIC = magic {
+            reader.seek(SeekFrom::Start(u64::from(offset)))?;
+            let entries: BincodeResult<Vec<WadEntry>> =
+                (0..count).map(|_| deserialize_from(&mut reader)).collect();
+            Ok(WadReader {
+                reader: RefCell::new(reader),
+                entries: entries?,
+            })
+        } else {
+            let msg = format!(
+                "Wrong WAD magic: found `{:?}`, expected `{:?}`",
+                magic, WAD3_MAGIC
+            );
+            Err(ErrorKind::Custom(msg).into())
         }
     }
 
@@ -77,7 +74,7 @@ impl<R: Read + Seek> WadReader<R> {
     pub fn read_entry(&self, entry: &WadEntry) -> IOResult<Vec<u8>> {
         self.reader
             .borrow_mut()
-            .seek(SeekFrom::Start(entry.file_pos as u64))?;
+            .seek(SeekFrom::Start(u64::from(entry.file_pos)))?;
         let mut data = vec![0; entry.size as usize];
         self.reader.borrow_mut().read_exact(&mut data)?;
         Ok(data)

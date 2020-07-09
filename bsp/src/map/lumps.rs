@@ -12,7 +12,7 @@ use std::{
 pub(crate) fn read_entities<R: Read + Seek>(reader: &BspMapReader<R>) -> BincodeResult<CString> {
     let mut data = reader.read_lump(LumpType::Entities)?;
     data.pop();
-    Ok(CString::new(data).map_err(|e| IOError::from(e))?)
+    Ok(CString::new(data).map_err(IOError::from)?)
 }
 
 pub(crate) fn read_unsized_lump<R: Read + Seek, T: DeserializeOwned>(
