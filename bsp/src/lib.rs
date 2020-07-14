@@ -6,6 +6,8 @@ use nom::{
     sequence::tuple,
 };
 
+pub mod lumps;
+
 const LUMPS_NUM: usize = 15;
 const HLBSP_VERSION: u32 = 30;
 

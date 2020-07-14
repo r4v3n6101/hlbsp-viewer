@@ -22,7 +22,7 @@ impl Camera {
     }
 
     pub fn rotate_by(&mut self, pitch: Scal, yaw: Scal, roll: Scal) {
-        let pitch = (self.rotation.x.0 + pitch) % 90.0;
+        let pitch = (self.rotation.x.0 + pitch) % 90.0; // TODO : will drop head after 90deg to 0. Dangerous to your neck!
         let yaw = (self.rotation.y.0 + yaw) % 360.0;
         let roll = (self.rotation.z.0 + roll) % 90.0;
         self.rotation.x = Deg(pitch);

@@ -8,7 +8,7 @@ edition = "2018"
 nom = "*"
 glium = "*"
 cgmath = "*"
+bsp = { path = "../bsp/" }
 
 [dev-dependencies]
 wad = { path = "../wad/" }
-bsp = { path = "../bsp/" }

@@ -1,19 +1,22 @@
-#[test]
-fn print_vertices_num() {
-    let file = std::fs::read(env!("BSP_TEST")).unwrap();
-    let map = bsp::Map::parse(&file).unwrap();
-    println!(
-        "Vertices: {}",
-        map.lump_data(bsp::LumpType::Vertices).len() / (4 * 3)
-    );
-}
+use bsp::{lumps::*, LumpType, Map};
 
 #[test]
 fn print_entities_lump() {
     let file = std::fs::read(env!("BSP_TEST")).unwrap();
-    let map = bsp::Map::parse(&file).unwrap();
-    println!(
-        "Entities: {}",
-        std::str::from_utf8(map.lump_data(bsp::LumpType::Entities)).unwrap()
+    let map = Map::parse(&file).unwrap();
+    let data = map.lump_data(LumpType::Entities);
+    println!("Entities: {}", parse_entities_str(data).unwrap());
+}
+
+#[test]
+fn test_lumps_parsers() {
+    let file = std::fs::read(env!("BSP_TEST")).unwrap();
+    let map = Map::parse(&file).unwrap();
+
+    let _ = (
+        parse_vertices(map.lump_data(LumpType::Vertices)).unwrap(),
+        parse_faces(map.lump_data(LumpType::Faces)).unwrap(),
+        parse_normals_from_planes(map.lump_data(LumpType::Planes)).unwrap(),
+        parse_texinfos(map.lump_data(LumpType::TexInfo)).unwrap(),
     );
 }
