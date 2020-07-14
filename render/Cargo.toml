@@ -6,7 +6,9 @@ edition = "2018"
 
 [dependencies]
 nom = "*"
-arraylib = "*"
+glium = "*"
+cgmath = "*"
 
 [dev-dependencies]
 wad = { path = "../wad/" }
+bsp = { path = "../bsp/" }

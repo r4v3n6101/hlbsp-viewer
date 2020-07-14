@@ -81,4 +81,27 @@ impl<'a> MipTexture<'a> {
     pub const fn name(&self) -> &str {
         self.name
     }
+
+    pub fn width(&self, mip_level: usize) -> u32 {
+        self.width / (1 << mip_level)
+    }
+
+    pub fn height(&self, mip_level: usize) -> u32 {
+        self.height / (1 << mip_level)
+    }
+
+    // TODO : naming
+    // TODO : working on alpha
+    // TODO : Option if mip_level > MIP_NUM
+    // TODO : RawImage2d may outlive
+    pub fn make_texture(&self, mip_level: usize) -> glium::texture::RawImage2d<'a, u8> {
+        let width = self.width(mip_level);
+        let height = self.height(mip_level);
+        let texture = self.color_indices[mip_level]
+            .into_iter()
+            .map(|&i| i as usize)
+            .flat_map(|i| self.color_table[3 * i..3 * (i + 1)].iter().copied())
+            .collect();
+        glium::texture::RawImage2d::from_raw_rgb(texture, (width, height))
+    }
 }
