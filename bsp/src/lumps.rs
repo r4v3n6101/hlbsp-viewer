@@ -2,7 +2,7 @@ use nom::{
     bytes::complete::take_until,
     combinator::{map, map_res},
     multi::many0,
-    number::complete::{le_f32, le_i16, le_u16, le_u32, le_u8},
+    number::complete::{le_f32, le_i32, le_u16, le_u32, le_u8},
     sequence::tuple,
 };
 
@@ -55,8 +55,8 @@ pub fn parse_edges(i: &[u8]) -> ParseResult<Vec<(usize, usize)>> {
     Ok(edges)
 }
 
-pub fn parse_ledges(i: &[u8]) -> ParseResult<Vec<i16>> {
-    let (_, ledges) = many0(le_i16)(i)?;
+pub fn parse_ledges(i: &[u8]) -> ParseResult<Vec<i32>> {
+    let (_, ledges) = many0(le_i32)(i)?;
     Ok(ledges)
 }
 

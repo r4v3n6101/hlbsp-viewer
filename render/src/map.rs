@@ -49,7 +49,7 @@ fn triangulate(vertices: Vec<usize>) -> Vec<usize> {
 pub struct MapRender {
     vertices: Vec<Vec3>,
     edges: Vec<(usize, usize)>,
-    surfedges: Vec<i16>,
+    surfedges: Vec<i32>,
     normals: Vec<Vec3>,
     texinfos: Vec<TexInfo>,
     faces: Vec<Face>,
