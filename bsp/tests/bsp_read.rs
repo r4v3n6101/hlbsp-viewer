@@ -20,5 +20,6 @@ fn test_lumps_parsers() {
         parse_faces(map.lump_data(LumpType::Faces)).unwrap(),
         parse_normals_from_planes(map.lump_data(LumpType::Planes)).unwrap(),
         parse_texinfos(map.lump_data(LumpType::TexInfo)).unwrap(),
+        parse_models(map.lump_data(LumpType::Models)).unwrap(),
     );
 }

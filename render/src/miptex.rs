@@ -24,8 +24,8 @@ pub struct MipTexture<'a> {
     name: &'a str,
     width: u32,
     height: u32,
-    color_indices: [&'a [u8]; MIP_NUM],
-    color_table: &'a [u8],
+    color_indices: Option<[&'a [u8]; MIP_NUM]>,
+    color_table: Option<&'a [u8]>,
 }
 
 impl<'a> MipTexture<'a> {
@@ -37,22 +37,23 @@ impl<'a> MipTexture<'a> {
             count(map(le_u32, |x| x as usize), MIP_NUM),
         ))(file)?;
 
-        let mut color_indices: [&[u8]; MIP_NUM] = [&[]; MIP_NUM];
+        let (color_indices, color_table) = if offsets.iter().any(|&x| x == 0) {
+            (None, None) // TODO : rewrite to separate fn
+        } else {
+            let mut color_indices: [&[u8]; MIP_NUM] = [&[]; MIP_NUM];
+            for i in 0..MIP_NUM {
+                let mip_offset = offsets[i];
+                let mip_i = {
+                    if mip_offset > file.len() {
+                        return Err(nom::Err::Incomplete(nom::Needed::Size(mip_offset)));
+                    }
+                    &file[mip_offset..]
+                };
+                let (_, mip_indices) =
+                    take((width as usize * height as usize) / (1 << (2 * i)))(mip_i)?;
+                color_indices[i] = mip_indices;
+            }
 
-        for i in 0..MIP_NUM {
-            let mip_offset = offsets[i];
-            let mip_i = {
-                if mip_offset > file.len() {
-                    return Err(nom::Err::Incomplete(nom::Needed::Size(mip_offset)));
-                }
-                &file[mip_offset..]
-            };
-            let (_, mip_indices) =
-                take((width as usize * height as usize) / (1 << (2 * i)))(mip_i)?;
-            color_indices[i] = mip_indices;
-        }
-
-        let color_table = if offsets.iter().all(|&x| x != 0) {
             let color_table_offset = offsets[MIP_NUM - 1]
                 + (width as usize * height as usize) / (1 << (2 * (MIP_NUM - 1)))
                 + 2; // 2 is gap
@@ -63,10 +64,9 @@ impl<'a> MipTexture<'a> {
                 }
                 &file[color_table_offset..]
             };
+
             let (_, color_table) = take(COLOR_TABLE_SIZE)(color_table_i)?;
-            color_table
-        } else {
-            &[] // TODO : use Option instead
+            (Some(color_indices), Some(color_table))
         };
 
         Ok(MipTexture {
@@ -92,16 +92,23 @@ impl<'a> MipTexture<'a> {
 
     // TODO : naming
     // TODO : working on alpha
-    // TODO : Option if mip_level > MIP_NUM
     // TODO : RawImage2d may outlive
-    pub fn make_texture(&self, mip_level: usize) -> glium::texture::RawImage2d<'a, u8> {
+    pub fn make_texture(&self, mip_level: usize) -> Option<glium::texture::RawImage2d<'a, u8>> {
+        if mip_level > MIP_NUM {
+            return None;
+        }
         let width = self.width(mip_level);
         let height = self.height(mip_level);
-        let texture = self.color_indices[mip_level]
+        let color_table = self.color_table?;
+        let color_indices = self.color_indices?;
+        let texture = color_indices[mip_level]
             .into_iter()
             .map(|&i| i as usize)
-            .flat_map(|i| self.color_table[3 * i..3 * (i + 1)].iter().copied())
+            .flat_map(|i| color_table[3 * i..3 * (i + 1)].iter().copied())
             .collect();
-        glium::texture::RawImage2d::from_raw_rgb(texture, (width, height))
+        Some(glium::texture::RawImage2d::from_raw_rgb(
+            texture,
+            (width, height),
+        ))
     }
 }

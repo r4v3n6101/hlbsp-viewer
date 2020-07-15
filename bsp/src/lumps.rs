@@ -26,6 +26,12 @@ pub struct Face {
     pub lightmap: usize,
 }
 
+pub struct Model {
+    pub origin: Vec3,
+    pub face_id: usize,
+    pub face_num: usize,
+}
+
 pub fn parse_entities_str(i: &[u8]) -> ParseResult<&str> {
     let (_, s) = map_res(take_until("\0"), std::str::from_utf8)(i)?;
     Ok(s)
@@ -119,4 +125,31 @@ pub fn parse_face(i: &[u8]) -> nom::IResult<&[u8], Face> {
 pub fn parse_faces(i: &[u8]) -> ParseResult<Vec<Face>> {
     let (_, faces) = many0(parse_face)(i)?;
     Ok(faces)
+}
+
+pub fn parse_model(i: &[u8]) -> nom::IResult<&[u8], Model> {
+    let (i, (_, origin, _, _, _, _, _, face_id, face_num)) = tuple((
+        tuple((parse_vec3, parse_vec3)),
+        parse_vec3,
+        le_u32,
+        le_u32,
+        le_u32,
+        le_u32,
+        le_u32,
+        map(le_u32, |x| x as usize),
+        map(le_u32, |x| x as usize),
+    ))(i)?;
+    Ok((
+        i,
+        Model {
+            origin,
+            face_id,
+            face_num,
+        },
+    ))
+}
+
+pub fn parse_models(i: &[u8]) -> ParseResult<Vec<Model>> {
+    let (_, models) = many0(parse_model)(i)?;
+    Ok(models)
 }
