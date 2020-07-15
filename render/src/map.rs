@@ -6,9 +6,9 @@ type UV = (f32, f32);
 
 #[derive(Copy, Clone)]
 pub struct Vertex {
-    position: Vec3,
-    tex_coords: UV,
-    normal: Vec3,
+    position: [f32; 3],
+    tex_coords: [f32; 2],
+    normal: [f32; 3],
 }
 
 implement_vertex!(Vertex, position, tex_coords, normal);
@@ -93,8 +93,8 @@ impl MapRender {
     fn face_to_edges<'a>(&'a self, face: &'a Face) -> impl Iterator<Item = (usize, usize)> + 'a {
         self.surfedges
             .iter()
-            .skip(face.ledge_id)
-            .take(face.ledge_num)
+            .skip(face.surfedge_id)
+            .take(face.surfedge_num)
             .map(move |&i| {
                 if i >= 0 {
                     self.edges[i as usize]
@@ -116,15 +116,17 @@ impl MapRender {
         let texinfo = &self.texinfos[face.texinfo_id];
         self.face_to_edges(face).flat_map(move |(v1, v2)| {
             let (v1, v2) = (self.vertices[v1], self.vertices[v2]);
+            let n = normal;
+            let (uv1, uv2) = (calculate_uvs(&v1, texinfo), calculate_uvs(&v2, texinfo));
             once(Vertex {
-                position: v1,
-                tex_coords: calculate_uvs(&v1, texinfo),
-                normal,
+                position: [v1.0, v1.1, v1.2],
+                tex_coords: [uv1.0, uv1.1],
+                normal: [n.0, n.1, n.2],
             })
             .chain(once(Vertex {
-                position: v2,
-                tex_coords: calculate_uvs(&v2, texinfo),
-                normal,
+                position: [v2.0, v2.1, v2.2],
+                tex_coords: [uv2.0, uv2.1],
+                normal: [n.0, n.1, n.2],
             }))
         })
     }

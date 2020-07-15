@@ -20,8 +20,8 @@ pub struct TexInfo {
 pub struct Face {
     pub plane_id: usize,
     pub side: bool,
-    pub ledge_id: usize,
-    pub ledge_num: usize,
+    pub surfedge_id: usize,
+    pub surfedge_num: usize,
     pub texinfo_id: usize,
     pub lightmap: usize,
 }
@@ -47,7 +47,7 @@ pub fn parse_vertices(i: &[u8]) -> ParseResult<Vec<Vec3>> {
 }
 
 pub fn parse_edge(i: &[u8]) -> nom::IResult<&[u8], (usize, usize)> {
-    tuple((map(le_u32, |x| x as usize), map(le_u32, |x| x as usize)))(i)
+    tuple((map(le_u16, |x| x as usize), map(le_u16, |x| x as usize)))(i)
 }
 
 pub fn parse_edges(i: &[u8]) -> ParseResult<Vec<(usize, usize)>> {
@@ -114,8 +114,8 @@ pub fn parse_face(i: &[u8]) -> nom::IResult<&[u8], Face> {
         Face {
             plane_id,
             side,
-            ledge_id,
-            ledge_num,
+            surfedge_id: ledge_id,
+            surfedge_num: ledge_num,
             texinfo_id,
             lightmap,
         },
