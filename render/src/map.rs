@@ -70,8 +70,13 @@ impl MapRender {
         }
     }
 
+    pub fn root_model(&self) -> &Model 
+    {
+        &self.models[0]
+    }
+
     pub fn get_vertices(&self) -> Vec<Vertex> {
-        let root_model = &self.models[0];
+        let root_model = self.root_model();
         self.faces
             .iter()
             .skip(root_model.face_id)
@@ -81,7 +86,7 @@ impl MapRender {
     }
 
     pub fn get_indices(&self) -> Vec<usize> {
-        let root_model = &self.models[0];
+        let root_model = self.root_model();
         self.faces
             .iter()
             .skip(root_model.face_id)
