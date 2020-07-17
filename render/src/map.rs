@@ -1,17 +1,17 @@
 use bsp::{lumps::*, LumpType, Map};
 use glium::implement_vertex;
-use std::iter::{once, Iterator};
+use std::iter::Iterator;
 
 type UV = (f32, f32);
 
 #[derive(Copy, Clone)]
 pub struct Vertex {
-    position: [f32; 3],
-    tex_coords: [f32; 2],
-    normal: [f32; 3],
+    pub position: [f32; 3],
+    pub tex_coords: [f32; 2],
+    pub normal: [f32; 3],
 }
 
-implement_vertex!(Vertex, position, tex_coords, normal);
+implement_vertex!(Vertex, position, tex_coords, normal); // TODO : separate?
 
 fn dot_product(a: &Vec3, b: &Vec3) -> f32 {
     a.0 * b.0 + a.1 * b.1 + a.2 * b.2
@@ -47,7 +47,7 @@ fn triangulate(vertices: Vec<usize>) -> Vec<usize> {
 }
 
 pub struct MapRender {
-    vertices: Vec<Vec3>,
+    pub vertices: Vec<Vec3>,
     edges: Vec<(usize, usize)>,
     surfedges: Vec<i32>,
     normals: Vec<Vec3>,
@@ -70,78 +70,69 @@ impl MapRender {
         }
     }
 
-    pub fn root_model(&self) -> &Model 
-    {
+    pub fn root_model(&self) -> &Model {
         &self.models[0]
     }
 
-    pub fn get_vertices(&self) -> Vec<Vertex> {
-        let root_model = self.root_model();
-        self.faces
-            .iter()
-            .skip(root_model.face_id)
-            .take(root_model.face_num)
-            .flat_map(|f| self.face_to_vertices(f))
-            .collect()
+    pub fn faces<'a>(&'a self, model: &'a Model) -> impl Iterator<Item = &Face> + 'a {
+        self.faces.iter().skip(model.face_id).take(model.face_num)
     }
 
-    pub fn get_indices(&self) -> Vec<usize> {
-        let root_model = self.root_model();
-        self.faces
-            .iter()
-            .skip(root_model.face_id)
-            .take(root_model.face_num)
-            .flat_map(|f| self.face_to_indices(f))
-            .collect()
-    }
-
-    fn face_to_edges<'a>(&'a self, face: &'a Face) -> impl Iterator<Item = (usize, usize)> + 'a {
+    fn face_to_vertices<'a>(&'a self, face: &'a Face) -> impl Iterator<Item = Vec3> + 'a {
         self.surfedges
             .iter()
             .skip(face.surfedge_id)
             .take(face.surfedge_num)
             .map(move |&i| {
-                if i >= 0 {
-                    self.edges[i as usize]
+                let v = if i >= 0 {
+                    self.edges[i as usize].0
                 } else {
-                    let e = self.edges[-i as usize];
-                    (e.1, e.0)
-                }
+                    self.edges[-i as usize].1
+                };
+                self.vertices[v]
             })
     }
 
-    fn face_to_vertices<'a>(&'a self, face: &'a Face) -> impl Iterator<Item = Vertex> + 'a {
-        let normal = if face.side {
-            let n = &self.normals[face.plane_id];
-            (-n.0, -n.1, -n.2)
-        } else {
-            self.normals[face.plane_id] // TODO : unsafe, may crash
-        };
+    pub fn calculate_vertices<'a>(&'a self, model: &'a Model) -> Vec<Vertex> {
+        self.faces(model)
+            .flat_map(|f| {
+                let vertices = self.face_to_vertices(f);
+                let normal = if f.side {
+                    self.normals[f.plane_id]
+                } else {
+                    let n = self.normals[f.plane_id];
+                    (-n.0, -n.1, -n.2)
+                };
 
-        let texinfo = &self.texinfos[face.texinfo_id];
-        self.face_to_edges(face).flat_map(move |(v1, v2)| {
-            let (v1, v2) = (self.vertices[v1], self.vertices[v2]);
-            let n = normal;
-            let (uv1, uv2) = (calculate_uvs(&v1, texinfo), calculate_uvs(&v2, texinfo));
-            once(Vertex {
-                position: [v1.0, v1.1, v1.2],
-                tex_coords: [uv1.0, uv1.1],
-                normal: [n.0, n.1, n.2],
+                let texinfo = &self.texinfos[f.texinfo_id];
+                vertices.map(move |v| {
+                    let uv = calculate_uvs(&v, texinfo);
+                    Vertex {
+                        position: [v.0, v.1, v.2],
+                        tex_coords: [uv.0, uv.1],
+                        normal: [normal.0, normal.1, normal.2],
+                    }
+                })
             })
-            .chain(once(Vertex {
-                position: [v2.0, v2.1, v2.2],
-                tex_coords: [uv2.0, uv2.1],
-                normal: [n.0, n.1, n.2],
-            }))
-        })
+            .collect()
     }
 
-    fn face_to_indices<'a>(&'a self, face: &'a Face) -> impl Iterator<Item = usize> + 'a {
-        triangulate(
-            self.face_to_edges(face)
-                .flat_map(|(v1, v2)| once(v1).chain(once(v2)))
-                .collect(),
-        )
-        .into_iter()
+    pub fn indices<'a>(&'a self, model: &'a Model) -> Vec<Vec<usize>> {
+        let mut i = 0;
+        self.faces(model)
+            .map(|f| {
+                let vertex_indices = f.surfedge_num;
+                let indices = (i..i + vertex_indices).collect();
+                i += vertex_indices;
+                indices
+            })
+            .collect()
+    }
+
+    pub fn indices_triangulated<'a>(&'a self, model: &'a Model) -> Vec<usize> {
+        self.indices(model)
+            .into_iter()
+            .flat_map(triangulate)
+            .collect()
     }
 }

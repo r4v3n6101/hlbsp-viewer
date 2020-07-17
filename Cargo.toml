@@ -6,6 +6,5 @@ edition = "2018"
 
 [dependencies]
 structopt = "*"
-glium = "*"
 bsp = { path = "bsp/" }
 render = { path = "render/" }

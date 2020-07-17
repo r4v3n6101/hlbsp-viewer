@@ -13,7 +13,7 @@ impl Camera {
     pub fn new() -> Self {
         Self {
             aspect_ratio: 4.0 / 3.0,
-            fov: Rad(3.14/2.0),
+            fov: Rad(3.14 / 2.0),
             near: 0.001,
             far: 100.0,
             position: Point3::new(0.0, 0.0, 0.0),
