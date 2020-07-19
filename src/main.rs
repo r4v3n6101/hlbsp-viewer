@@ -25,13 +25,13 @@ struct Opt {
 fn main() {
     let opt = Opt::from_args();
     let file_content = std::fs::read(&opt.bsp_path).expect("Failed reading bsp file");
-    let bsp_map = bsp::Map::parse(&file_content).expect("Failed parsing bsp map");
-    let map_render = render::map::MapRender::new(&bsp_map);
+    let bsp_map = bsp::RawMap::parse(&file_content).expect("Failed parsing bsp map");
+    let map_render = bsp::map_impl::GfxMap::new(&bsp_map);
     print_vertices(&map_render);
     print_indices(&map_render, opt.triangulate);
 }
 
-fn print_vertices(map_render: &render::map::MapRender) {
+fn print_vertices(map_render: &bsp::map_impl::GfxMap) {
     let vertices = map_render.calculate_vertices(map_render.root_model());
     vertices
         .into_iter()
@@ -39,7 +39,7 @@ fn print_vertices(map_render: &render::map::MapRender) {
         .for_each(|v| println!("v {} {} {}", v[0], v[2], -v[1]));
 }
 
-fn print_indices(map_render: &render::map::MapRender, triangulate: bool) {
+fn print_indices(map_render: &bsp::map_impl::GfxMap, triangulate: bool) {
     let model = map_render.root_model();
     if triangulate {
         let indices = map_render.indices_triangulated(model);

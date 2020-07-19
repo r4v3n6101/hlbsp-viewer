@@ -1,8 +1,13 @@
-use bsp::{lumps::*, LumpType, Map};
-use glium::implement_vertex;
+use crate::{
+    lumps::{
+        parse_edges, parse_faces, parse_ledges, parse_models, parse_normals_from_planes,
+        parse_texinfos, parse_vertices, Face, Model, TexInfo, Vec3,
+    },
+    LumpType, RawMap,
+};
 use std::iter::Iterator;
 
-type UV = (f32, f32);
+pub type UV = (f32, f32);
 
 #[derive(Copy, Clone)]
 pub struct Vertex {
@@ -11,12 +16,11 @@ pub struct Vertex {
     pub normal: [f32; 3],
 }
 
-implement_vertex!(Vertex, position, tex_coords, normal); // TODO : separate?
-
 fn dot_product(a: &Vec3, b: &Vec3) -> f32 {
     a.0 * b.0 + a.1 * b.1 + a.2 * b.2
 }
 
+// TODO : divide by miptex width, height for normalization
 fn calculate_uvs(vertex: &Vec3, texinfo: &TexInfo) -> UV {
     (
         texinfo.ss + dot_product(vertex, &texinfo.vs),
@@ -46,8 +50,11 @@ fn triangulate(vertices: Vec<usize>) -> Vec<usize> {
     }
 }
 
-pub struct MapRender {
-    pub vertices: Vec<Vec3>,
+/*
+ * Map used in graphic libraries such as OpenGL, Vulkan, etc.
+*/
+pub struct GfxMap {
+    vertices: Vec<Vec3>,
     edges: Vec<(usize, usize)>,
     surfedges: Vec<i32>,
     normals: Vec<Vec3>,
@@ -56,10 +63,10 @@ pub struct MapRender {
     models: Vec<Model>,
 }
 
-impl MapRender {
+impl GfxMap {
     // TODO : remove unwraps
-    pub fn new(map: &Map) -> MapRender {
-        MapRender {
+    pub fn new(map: &RawMap) -> GfxMap {
+        GfxMap {
             vertices: parse_vertices(map.lump_data(LumpType::Vertices)).unwrap(),
             edges: parse_edges(map.lump_data(LumpType::Edges)).unwrap(),
             surfedges: parse_ledges(map.lump_data(LumpType::Surfegdes)).unwrap(),
@@ -74,7 +81,7 @@ impl MapRender {
         &self.models[0]
     }
 
-    pub fn faces<'a>(&'a self, model: &'a Model) -> impl Iterator<Item = &Face> + 'a {
+    fn faces<'a>(&'a self, model: &'a Model) -> impl Iterator<Item = &Face> + 'a {
         self.faces.iter().skip(model.face_id).take(model.face_num)
     }
 
@@ -117,6 +124,7 @@ impl MapRender {
             .collect()
     }
 
+    // TODO : replace with iterators
     pub fn indices<'a>(&'a self, model: &'a Model) -> Vec<Vec<usize>> {
         let mut i = 0;
         self.faces(model)

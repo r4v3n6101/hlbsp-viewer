@@ -1,9 +1,9 @@
-use bsp::{lumps::*, LumpType, Map};
+use bsp::{lumps::*, LumpType, RawMap};
 
 #[test]
 fn print_entities_lump() {
     let file = std::fs::read(env!("BSP_TEST")).unwrap();
-    let map = Map::parse(&file).unwrap();
+    let map = RawMap::parse(&file).unwrap();
     let data = map.lump_data(LumpType::Entities);
     println!("Entities: {}", parse_entities_str(data).unwrap());
 }
@@ -11,7 +11,7 @@ fn print_entities_lump() {
 #[test]
 fn test_lumps_parsers() {
     let file = std::fs::read(env!("BSP_TEST")).unwrap();
-    let map = Map::parse(&file).unwrap();
+    let map = RawMap::parse(&file).unwrap();
 
     let _ = (
         parse_vertices(map.lump_data(LumpType::Vertices)).unwrap(),

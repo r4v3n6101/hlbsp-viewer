@@ -7,4 +7,3 @@ edition = "2018"
 [dependencies]
 structopt = "*"
 bsp = { path = "bsp/" }
-render = { path = "render/" }

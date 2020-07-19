@@ -7,6 +7,7 @@ use nom::{
 };
 
 pub mod lumps;
+pub mod map_impl;
 
 const LUMPS_NUM: usize = 15;
 const HLBSP_VERSION: u32 = 30;
@@ -53,17 +54,17 @@ impl<'a> Lump<'a> {
     }
 }
 
-pub struct Map<'a> {
+pub struct RawMap<'a> {
     lumps: Vec<Lump<'a>>,
 }
 
-impl Map<'_> {
-    pub fn parse(file: &[u8]) -> Result<Map, nom::Err<ParseError<'_>>> {
+impl RawMap<'_> {
+    pub fn parse(file: &[u8]) -> Result<RawMap, nom::Err<ParseError<'_>>> {
         let (_, (_, lumps)) = tuple((
             verify(le_u32, |&x| x == HLBSP_VERSION),
             count(|i| Lump::parse(i, file), LUMPS_NUM),
         ))(file)?;
-        Ok(Map { lumps })
+        Ok(RawMap { lumps })
     }
 
     pub fn lump_data(&self, lump_type: LumpType) -> &[u8] {
