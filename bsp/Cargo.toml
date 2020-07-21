@@ -7,3 +7,4 @@ edition = "2018"
 [dependencies]
 nom = "*"
 itertools = "*"
+miptex = { path = "../miptex/" }

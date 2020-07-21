@@ -16,7 +16,7 @@ fn test_lumps_parsers() {
     let _ = (
         parse_vertices(map.lump_data(LumpType::Vertices)).unwrap(),
         parse_edges(map.lump_data(LumpType::Edges)).unwrap(),
-        parse_ledges(map.lump_data(LumpType::Surfegdes)).unwrap(),
+        parse_surfedges(map.lump_data(LumpType::Surfegdes)).unwrap(),
         parse_faces(map.lump_data(LumpType::Faces)).unwrap(),
         parse_normals_from_planes(map.lump_data(LumpType::Planes)).unwrap(),
         parse_texinfos(map.lump_data(LumpType::TexInfo)).unwrap(),

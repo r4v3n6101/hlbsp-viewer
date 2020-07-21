@@ -82,6 +82,14 @@ impl<'a> MipTexture<'a> {
         self.name
     }
 
+    pub const fn full_width(&self) -> u32 {
+        self.width
+    }
+
+    pub const fn full_height(&self) -> u32 {
+        self.height
+    }
+
     pub fn width(&self, mip_level: usize) -> Option<u32> {
         if mip_level < MIP_NUM {
             Some(self.width / (1 << mip_level))
@@ -96,6 +104,10 @@ impl<'a> MipTexture<'a> {
         } else {
             None
         }
+    }
+
+    pub fn empty(&self) -> bool {
+        self.color_table.is_none() || self.color_indices.is_none()
     }
 
     pub fn color(&self, mip_level: usize, x: u32, y: u32) -> Option<[u8; 3]> {

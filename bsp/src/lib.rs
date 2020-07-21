@@ -33,6 +33,7 @@ pub enum LumpType {
 type Input<'a> = &'a [u8];
 type ParseError<'a> = nom::error::VerboseError<Input<'a>>;
 type ParseResult<'a, O> = nom::IResult<Input<'a>, O, ParseError<'a>>;
+type OnlyResult<'a, O> = Result<O, nom::Err<ParseError<'a>>>;
 
 pub struct Lump<'a> {
     data: &'a [u8],
@@ -59,7 +60,7 @@ pub struct RawMap<'a> {
 }
 
 impl<'a> RawMap<'a> {
-    pub fn parse(file: &'a [u8]) -> Result<Self, nom::Err<ParseError<'a>>> {
+    pub fn parse(file: &'a [u8]) -> OnlyResult<Self> {
         let (_, (_, lumps)) = tuple((
             verify(le_u32, |&x| x == HLBSP_VERSION),
             count(|i| Lump::parse(i, file), LUMPS_NUM),

@@ -13,6 +13,7 @@ const NAME_LEN: usize = 16;
 type Input<'a> = &'a [u8];
 type ParseError<'a> = nom::error::VerboseError<Input<'a>>;
 type ParseResult<'a, O> = nom::IResult<Input<'a>, O, ParseError<'a>>;
+type OnlyResult<'a, O> = Result<O, nom::Err<ParseError<'a>>>;
 
 fn take_cstr(i: &[u8], size: usize) -> ParseResult<&str> {
     let (i, cstr) = take(size)(i)?;
@@ -63,7 +64,7 @@ pub struct Archive<'a> {
 }
 
 impl<'a> Archive<'a> {
-    pub fn parse(file: &'a [u8]) -> Result<Self, nom::Err<ParseError<'a>>> {
+    pub fn parse(file: &'a [u8]) -> OnlyResult<Self> {
         let (_, (_, dir_num, dir_offset)) = tuple((
             tag(WAD3_MAGIC),
             map(le_u32, |x| x as usize),
