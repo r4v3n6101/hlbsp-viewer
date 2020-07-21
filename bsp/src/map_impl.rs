@@ -5,9 +5,8 @@ use crate::{
     },
     LumpType, RawMap,
 };
-use itertools::Itertools;
 use miptex::MipTexture;
-use std::iter::{empty, once, Iterator};
+use std::iter::{once, Iterator};
 
 pub type UV = (f32, f32);
 
@@ -31,17 +30,18 @@ fn calculate_uvs(vertex: &Vec3, texinfo: &TexInfo, texture: &MipTexture) -> UV {
 }
 
 // Assuming all vertices are in clockwise
-fn triangulated<'a>(
-    mut vertices: impl Iterator<Item = usize> + 'a,
-) -> Box<dyn Iterator<Item = usize> + 'a> {
-    if let Some(base_point) = vertices.next() {
-        Box::new(
-            vertices
-                .tuple_windows::<(_, _)>()
-                .flat_map(move |(v1, v2)| once(base_point).chain(once(v1)).chain(once(v2))),
-        )
-    } else {
-        Box::new(empty())
+fn triangulated(vertices: Vec<usize>) -> Vec<usize> {
+    let n = vertices.len();
+    match n {
+        0..=2 => vec![],
+        3 => vertices,
+        _ => {
+            let base_point = vertices[0];
+            vertices[1..]
+                .windows(2)
+                .flat_map(|i| once(base_point).chain(i.iter().copied()))
+                .collect()
+        }
     }
 }
 
@@ -122,21 +122,27 @@ impl<'a> IndexedMap<'a> {
             .collect()
     }
 
-    pub fn indices(
-        &'a self,
-        model: &'a Model,
-    ) -> impl Iterator<Item = impl Iterator<Item = usize>> + 'a {
+    // TODO : comment why not iterators
+    pub fn indices_with_texture(&'a self, model: &'a Model) -> Vec<(&'a MipTexture, Vec<usize>)> {
         let mut i = 0;
-        self.faces(model).map(move |f| {
-            let vertices_num = f.surfedge_num;
-            let indices = i..i + vertices_num;
-            i += vertices_num;
-            indices
-        })
+        self.faces(model)
+            .map(move |f| {
+                let vertices_num = f.surfedge_num;
+                let indices = i..i + vertices_num;
+                i += vertices_num;
+
+                let texinfo = &self.texinfos[f.texinfo_id];
+                let texture = &self.textures[texinfo.texture_id];
+                (texture, indices.collect())
+            })
+            .collect()
     }
 
-    pub fn indices_triangulated(&'a self, model: &'a Model) -> Vec<usize> {
-        self.indices(model).flat_map(triangulated).collect()
+    pub fn indices_triangulated(&'a self, model: &'a Model) -> Vec<(&'a MipTexture, Vec<usize>)> {
+        self.indices_with_texture(model)
+            .into_iter()
+            .map(|(t, indices)| (t, triangulated(indices)))
+            .collect()
     }
 
     pub fn replace_empty_textures<F: FnMut(&mut MipTexture)>(&mut self, f: F) {
