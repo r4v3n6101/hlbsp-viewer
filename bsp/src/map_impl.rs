@@ -5,7 +5,8 @@ use crate::{
     },
     LumpType, RawMap,
 };
-use std::iter::Iterator;
+use itertools::Itertools;
+use std::iter::{empty, once, Iterator};
 
 pub type UV = (f32, f32);
 
@@ -29,31 +30,24 @@ fn calculate_uvs(vertex: &Vec3, texinfo: &TexInfo) -> UV {
 }
 
 // Assuming all vertices are in clockwise
-// TODO : use iterators?
-fn triangulate(vertices: Vec<usize>) -> Vec<usize> {
-    let n = vertices.len();
-    match n {
-        0..=2 => vec![],
-        3 => vertices,
-        _ => {
-            let mut out = Vec::with_capacity((n - 2) * 3);
-            let base_point = vertices[0];
-            for i in 1..n - 1 {
-                let p1 = vertices[i];
-                let p2 = vertices[i + 1];
-                out.push(base_point);
-                out.push(p1);
-                out.push(p2);
-            }
-            out
-        }
+fn triangulated<'a>(
+    mut vertices: impl Iterator<Item = usize> + 'a,
+) -> Box<dyn Iterator<Item = usize> + 'a> {
+    if let Some(base_point) = vertices.next() {
+        Box::new(
+            vertices
+                .tuple_windows::<(_, _)>()
+                .flat_map(move |(v1, v2)| once(base_point).chain(once(v1)).chain(once(v2))),
+        )
+    } else {
+        Box::new(empty())
     }
 }
 
 /*
- * Map used in graphic libraries such as OpenGL, Vulkan, etc.
+ * Map implementation without using bsp-tree data
 */
-pub struct GfxMap {
+pub struct IndexedMap {
     vertices: Vec<Vec3>,
     edges: Vec<(usize, usize)>,
     surfedges: Vec<i32>,
@@ -63,10 +57,10 @@ pub struct GfxMap {
     models: Vec<Model>,
 }
 
-impl GfxMap {
+impl IndexedMap {
     // TODO : remove unwraps
-    pub fn new(map: &RawMap) -> GfxMap {
-        GfxMap {
+    pub fn new(map: &RawMap) -> Self {
+        Self {
             vertices: parse_vertices(map.lump_data(LumpType::Vertices)).unwrap(),
             edges: parse_edges(map.lump_data(LumpType::Edges)).unwrap(),
             surfedges: parse_ledges(map.lump_data(LumpType::Surfegdes)).unwrap(),
@@ -124,23 +118,20 @@ impl GfxMap {
             .collect()
     }
 
-    // TODO : replace with iterators
-    pub fn indices<'a>(&'a self, model: &'a Model) -> Vec<Vec<usize>> {
+    pub fn indices<'a>(
+        &'a self,
+        model: &'a Model,
+    ) -> impl Iterator<Item = impl Iterator<Item = usize>> + 'a {
         let mut i = 0;
-        self.faces(model)
-            .map(|f| {
-                let vertex_indices = f.surfedge_num;
-                let indices = (i..i + vertex_indices).collect();
-                i += vertex_indices;
-                indices
-            })
-            .collect()
+        self.faces(model).map(move |f| {
+            let vertices_num = f.surfedge_num;
+            let indices = i..i + vertices_num;
+            i += vertices_num;
+            indices
+        })
     }
 
     pub fn indices_triangulated<'a>(&'a self, model: &'a Model) -> Vec<usize> {
-        self.indices(model)
-            .into_iter()
-            .flat_map(triangulate)
-            .collect()
+        self.indices(model).flat_map(triangulated).collect()
     }
 }

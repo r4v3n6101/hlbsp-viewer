@@ -26,7 +26,7 @@ pub struct Entry<'a> {
 }
 
 impl<'a> Entry<'a> {
-    fn parse(i: &'a [u8], file: &'a [u8]) -> ParseResult<'a, (&'a str, Entry<'a>)> {
+    fn parse(i: &'a [u8], file: &'a [u8]) -> ParseResult<'a, (&'a str, Self)> {
         // There's no compression, because I don't find any wad using compression (seems it's LZSS)
         let (i, (offset, disk_size, _, etype, _, _)) = tuple((
             map(le_u32, |x| x as usize),
@@ -46,7 +46,7 @@ impl<'a> Entry<'a> {
         };
         let (_, data) = take(disk_size)(data_i)?;
 
-        Ok((i, (name, Entry { etype, data })))
+        Ok((i, (name, Self { etype, data })))
     }
 
     pub const fn etype(&self) -> u8 {
@@ -62,8 +62,8 @@ pub struct Archive<'a> {
     entries: HashMap<&'a str, Entry<'a>>,
 }
 
-impl Archive<'_> {
-    pub fn parse(file: &[u8]) -> Result<Archive, nom::Err<ParseError<'_>>> {
+impl<'a> Archive<'a> {
+    pub fn parse(file: &'a [u8]) -> Result<Self, nom::Err<ParseError<'a>>> {
         let (_, (_, dir_num, dir_offset)) = tuple((
             tag(WAD3_MAGIC),
             map(le_u32, |x| x as usize),
@@ -80,7 +80,7 @@ impl Archive<'_> {
         let (_, entries) = map(count(|i| Entry::parse(i, file), dir_num), |x| {
             x.into_iter().collect()
         })(dir_i)?;
-        Ok(Archive { entries })
+        Ok(Self { entries })
     }
 
     pub fn entries(&self) -> impl Iterator<Item = (&&str, &Entry)> {

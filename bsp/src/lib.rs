@@ -39,7 +39,7 @@ pub struct Lump<'a> {
 }
 
 impl<'a> Lump<'a> {
-    fn parse(i: &'a [u8], file: &'a [u8]) -> ParseResult<'a, Lump<'a>> {
+    fn parse(i: &'a [u8], file: &'a [u8]) -> ParseResult<'a, Self> {
         let (i, (offset, size)) =
             tuple((map(le_u32, |x| x as usize), map(le_u32, |x| x as usize)))(i)?;
         let lump_i = {
@@ -50,7 +50,7 @@ impl<'a> Lump<'a> {
         };
         let (_, data) = take(size)(lump_i)?;
 
-        Ok((i, Lump { data }))
+        Ok((i, Self { data }))
     }
 }
 
@@ -58,8 +58,8 @@ pub struct RawMap<'a> {
     lumps: Vec<Lump<'a>>,
 }
 
-impl RawMap<'_> {
-    pub fn parse(file: &[u8]) -> Result<RawMap, nom::Err<ParseError<'_>>> {
+impl<'a> RawMap<'a> {
+    pub fn parse(file: &'a [u8]) -> Result<Self, nom::Err<ParseError<'a>>> {
         let (_, (_, lumps)) = tuple((
             verify(le_u32, |&x| x == HLBSP_VERSION),
             count(|i| Lump::parse(i, file), LUMPS_NUM),
