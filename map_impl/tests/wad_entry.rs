@@ -1,3 +1,5 @@
+use map_impl::miptex::MipTexture;
+
 #[test]
 fn test_entry_and_miptex_names() {
     let file = std::fs::read(env!("WAD_TEST")).unwrap();
@@ -5,7 +7,7 @@ fn test_entry_and_miptex_names() {
 
     wad.entries().for_each(|(&file_name, e)| {
         let wad_name = file_name;
-        let miptex = miptex::MipTexture::parse(e.data()).unwrap();
+        let miptex = MipTexture::parse(e.data()).unwrap();
         let miptex_name = miptex.name();
         assert!(wad_name.eq_ignore_ascii_case(miptex_name));
     });
@@ -19,7 +21,7 @@ fn export_entries() {
     let wad = wad::Archive::parse(&file).unwrap();
 
     wad.entries()
-        .map(|(&file_name, e)| (file_name, miptex::MipTexture::parse(e.data()).unwrap()))
+        .map(|(&file_name, e)| (file_name, MipTexture::parse(e.data()).unwrap()))
         .for_each(|(file_name, miptex)| {
             let (width, height) = (
                 miptex.width(mip_level).unwrap(),
@@ -28,7 +30,8 @@ fn export_entries() {
             let mut imgbuf = image::ImageBuffer::new(width, height);
             for x in 0..width {
                 for y in 0..height {
-                    *imgbuf.get_pixel_mut(x, y) = image::Rgb(miptex.color(mip_level, x, y).unwrap());
+                    *imgbuf.get_pixel_mut(x, y) =
+                        image::Rgb(miptex.color(mip_level, x, y).unwrap());
                 }
             }
             let file_name = String::from(file_name) + ".png";

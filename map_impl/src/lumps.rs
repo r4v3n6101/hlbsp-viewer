@@ -1,4 +1,4 @@
-use miptex::MipTexture;
+use crate::miptex::MipTexture;
 use nom::{
     bytes::complete::take_until,
     combinator::{map, map_res},
@@ -75,7 +75,7 @@ pub fn parse_normals_from_planes(i: &[u8]) -> OnlyResult<Vec<Vec3>> {
 }
 
 fn parse_texinfo(i: &[u8]) -> ParseResult<TexInfo> {
-    let (i, (vs, ss, vt, st, miptex, _)) = tuple((
+    let (i, (vs, ss, vt, st, texture_id, _)) = tuple((
         parse_vec3,
         le_f32,
         parse_vec3,
@@ -90,7 +90,7 @@ fn parse_texinfo(i: &[u8]) -> ParseResult<TexInfo> {
             ss,
             vt,
             st,
-            texture_id: miptex,
+            texture_id,
         },
     ))
 }

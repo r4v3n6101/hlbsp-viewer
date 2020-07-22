@@ -1,4 +1,5 @@
-use bsp::{map_impl::IndexedMap, RawMap};
+use bsp::RawMap;
+use map_impl::IndexedMap;
 
 #[test]
 fn print_vertices_indices_and_triangulated() {
@@ -17,4 +18,5 @@ fn print_vertices_indices_and_triangulated() {
     println!("Vertices: {}", vertices.len());
     println!("Faces: {}", indices.len());
     println!("Indices (triangulated): {}", triangulated_indices.len());
+    println!("Entities: {}", map.entities());
 }

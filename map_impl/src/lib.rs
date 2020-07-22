@@ -1,12 +1,14 @@
-use crate::{
-    lumps::{
-        parse_edges, parse_faces, parse_models, parse_normals_from_planes, parse_surfedges,
-        parse_texinfos, parse_textures, parse_vertices, Face, Model, TexInfo, Vec3,
-    },
-    LumpType, RawMap,
+use crate::lumps::{
+    parse_edges, parse_entities_str, parse_faces, parse_models, parse_normals_from_planes,
+    parse_surfedges, parse_texinfos, parse_textures, parse_vertices, Face, Model, TexInfo, Vec3,
 };
+use bsp::{LumpType, RawMap};
 use miptex::MipTexture;
 use std::iter::{once, Iterator};
+use wad::Archive;
+
+mod lumps;
+pub mod miptex;
 
 pub type UV = (f32, f32);
 
@@ -21,11 +23,10 @@ fn dot_product(a: &Vec3, b: &Vec3) -> f32 {
     a.0 * b.0 + a.1 * b.1 + a.2 * b.2
 }
 
-// TODO : divide by miptex width, height for normalization
 fn calculate_uvs(vertex: &Vec3, texinfo: &TexInfo, texture: &MipTexture) -> UV {
     (
-        (texinfo.ss + dot_product(vertex, &texinfo.vs)) / (texture.full_width() as f32),
-        (texinfo.st + dot_product(vertex, &texinfo.vt)) / (texture.full_height() as f32),
+        (dot_product(vertex, &texinfo.vs) /*+ texinfo.ss*/) / (texture.full_width() as f32),
+        (dot_product(vertex, &texinfo.vt) /*+ texinfo.st*/) / (texture.full_height() as f32),
     )
 }
 
@@ -46,9 +47,10 @@ fn triangulated(vertices: Vec<usize>) -> Vec<usize> {
 }
 
 /*
- * Map implementation without using bsp-tree data
+ * Map implementation without bsp-tree data
 */
 pub struct IndexedMap<'a> {
+    entities: &'a str,
     vertices: Vec<Vec3>,
     edges: Vec<(usize, usize)>,
     surfedges: Vec<i32>,
@@ -63,6 +65,7 @@ impl<'a> IndexedMap<'a> {
     // TODO : remove unwraps
     pub fn new(map: &'a RawMap) -> Self {
         Self {
+            entities: parse_entities_str(map.lump_data(LumpType::Entities)).unwrap(),
             vertices: parse_vertices(map.lump_data(LumpType::Vertices)).unwrap(),
             edges: parse_edges(map.lump_data(LumpType::Edges)).unwrap(),
             surfedges: parse_surfedges(map.lump_data(LumpType::Surfegdes)).unwrap(),
@@ -72,6 +75,14 @@ impl<'a> IndexedMap<'a> {
             textures: parse_textures(map.lump_data(LumpType::Textures)).unwrap(),
             models: parse_models(map.lump_data(LumpType::Models)).unwrap(),
         }
+    }
+
+    pub const fn entities(&self) -> &str {
+        self.entities
+    }
+
+    pub fn textures(&self) -> &[MipTexture] {
+        &self.textures
     }
 
     pub fn root_model(&self) -> &Model {
@@ -145,7 +156,22 @@ impl<'a> IndexedMap<'a> {
             .collect()
     }
 
-    pub fn replace_empty_textures<F: FnMut(&mut MipTexture)>(&mut self, f: F) {
-        self.textures.iter_mut().filter(|t| t.empty()).for_each(f);
+    pub fn empty_textures(&self) -> Vec<&str> {
+        self.textures
+            .iter()
+            .filter_map(|tex| if tex.empty() { Some(tex.name()) } else { None })
+            .collect()
+    }
+
+    pub fn replace_empty_textures(&mut self, wad: &'a Archive<'a>) {
+        self.textures
+            .iter_mut()
+            .filter(|t| t.empty())
+            .for_each(|miptex| {
+                let name = miptex.name().to_uppercase();
+                if let Some(entry) = wad.get_by_name(&name) {
+                    *miptex = MipTexture::parse(entry.data()).unwrap(); // TODO : same
+                }
+            });
     }
 }
