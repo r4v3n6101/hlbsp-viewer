@@ -15,7 +15,7 @@ void main() {
     o_tex_coords = tex_coords;
     o_normal = normal;
 
-    vec3 pos = (position - origin) * 0.003;
+    vec3 pos = (position - origin) * 0.0007;
     gl_Position = proj * view * vec4(vec3(pos.x, pos.z, -pos.y), 1.0);
 }
 

@@ -1,20 +1,6 @@
 mod support;
 
-use glium::{
-    glutin::{
-        dpi::{LogicalSize, PhysicalSize},
-        event::{Event, VirtualKeyCode, WindowEvent},
-        event_loop::{ControlFlow, EventLoop},
-        window::WindowBuilder,
-        ContextBuilder,
-    },
-    index::{IndexBuffer, PrimitiveType},
-    program,
-    texture::{RawImage2d, Texture2d},
-    uniform,
-    vertex::VertexBuffer,
-    Display, Surface,
-};
+use glium::{glutin, program, uniform, Surface};
 use itertools::Itertools;
 use map_impl::IndexedMap;
 use std::path::PathBuf;
@@ -69,14 +55,14 @@ fn substitute_wad_textures<'a>(map: &mut IndexedMap<'a>, archives: &'a [wad::Arc
 }
 
 fn start_window_loop(map: &IndexedMap, mip_level: usize) {
-    let event_loop = EventLoop::new();
-    let wb = WindowBuilder::new()
+    let event_loop = glutin::event_loop::EventLoop::new();
+    let wb = glutin::window::WindowBuilder::new()
         .with_title("hlbsp viewer")
-        .with_inner_size(LogicalSize::new(1024.0, 768.0));
-    let cb = ContextBuilder::new();
+        .with_inner_size(glutin::dpi::LogicalSize::new(1024.0, 768.0));
+    let cb = glutin::ContextBuilder::new();
 
     let mut camera = Camera::new();
-    let display = Display::new(wb, cb, &event_loop).unwrap();
+    let display = glium::Display::new(wb, cb, &event_loop).unwrap();
 
     let root_model = map.root_model();
     let vertices: Vec<GlVertex> = map
@@ -94,20 +80,26 @@ fn start_window_loop(map: &IndexedMap, mip_level: usize) {
                 tex.width(mip_level).unwrap(),
                 tex.height(mip_level).unwrap(),
             );
-            let image = RawImage2d::from_raw_rgb(tex.pixels(mip_level).unwrap(), dims);
-            let texture = Texture2d::new(&display, image).unwrap();
+            let image =
+                glium::texture::RawImage2d::from_raw_rgb(tex.pixels(mip_level).unwrap(), dims);
+            let texture = glium::texture::Texture2d::new(&display, image).unwrap();
 
             let indices: Vec<_> = group
                 .flat_map(|(_, indices)| indices.into_iter().rev().map(|x| x as u16))
                 .collect();
-            let ibo = IndexBuffer::new(&display, PrimitiveType::TrianglesList, &indices).unwrap();
+            let ibo = glium::index::IndexBuffer::new(
+                &display,
+                glium::index::PrimitiveType::TrianglesList,
+                &indices,
+            )
+            .unwrap();
             (texture, ibo)
         })
         .collect();
 
     let origin = root_model.origin;
     let origin = [origin.0, origin.1, origin.2];
-    let vbo = VertexBuffer::new(&display, &vertices).unwrap();
+    let vbo = glium::vertex::VertexBuffer::new(&display, &vertices).unwrap();
     let program = program!(&display,
          140 => {
              vertex: include_str!("../shaders/vert.glsl"),
@@ -124,15 +116,17 @@ fn start_window_loop(map: &IndexedMap, mip_level: usize) {
         ..Default::default()
     };
 
-    event_loop.run(move |event, _, control_flow| match event {
-        Event::WindowEvent {
+    event_loop.run(move |event, _, control_flow| {
+        if let glutin::event::Event::WindowEvent {
             window_id: _,
             event: wevent,
-        } => *control_flow = process_window(wevent, &mut camera),
-        _ => {
+        } = event
+        {
+            *control_flow = process_window(&wevent, &mut camera)
+        } else {
             let next_frame_time =
                 std::time::Instant::now() + std::time::Duration::from_nanos(16_666_667);
-            *control_flow = ControlFlow::WaitUntil(next_frame_time);
+            *control_flow = glutin::event_loop::ControlFlow::WaitUntil(next_frame_time);
 
             let mut target = display.draw();
             target.clear_color_and_depth((1.0, 1.0, 0.0, 1.0), 1.0);
@@ -155,39 +149,42 @@ fn start_window_loop(map: &IndexedMap, mip_level: usize) {
     });
 }
 
-fn process_window(wevent: WindowEvent, camera: &mut Camera) -> ControlFlow {
+fn process_window(
+    wevent: &glutin::event::WindowEvent,
+    camera: &mut Camera,
+) -> glutin::event_loop::ControlFlow {
     match wevent {
-        WindowEvent::KeyboardInput { input, .. } => {
+        glutin::event::WindowEvent::KeyboardInput { input, .. } => {
             let mut exit = false;
             if let Some(virt_keycode) = input.virtual_keycode {
                 match virt_keycode {
-                    VirtualKeyCode::W => camera.position.z += 0.01,
-                    VirtualKeyCode::A => camera.position.x -= 0.01,
-                    VirtualKeyCode::S => camera.position.z -= 0.01,
-                    VirtualKeyCode::D => camera.position.x += 0.01,
-                    VirtualKeyCode::Space => camera.position.y += 0.01,
-                    VirtualKeyCode::LControl => camera.position.y -= 0.01,
+                    glutin::event::VirtualKeyCode::W => camera.position.z += 0.01,
+                    glutin::event::VirtualKeyCode::A => camera.position.x -= 0.01,
+                    glutin::event::VirtualKeyCode::S => camera.position.z -= 0.01,
+                    glutin::event::VirtualKeyCode::D => camera.position.x += 0.01,
+                    glutin::event::VirtualKeyCode::Space => camera.position.y += 0.01,
+                    glutin::event::VirtualKeyCode::LControl => camera.position.y -= 0.01,
 
-                    VirtualKeyCode::Up => camera.rotate_by(1.0, 0.0, 0.0),
-                    VirtualKeyCode::Down => camera.rotate_by(-1.0, 0.0, 0.0),
-                    VirtualKeyCode::Left => camera.rotate_by(0.0, -1.0, 0.0), // TODO : glitch
-                    VirtualKeyCode::Right => camera.rotate_by(0.0, 1.0, 0.0),
+                    glutin::event::VirtualKeyCode::Up => camera.rotate_by(1.0, 0.0, 0.0),
+                    glutin::event::VirtualKeyCode::Down => camera.rotate_by(-1.0, 0.0, 0.0),
+                    glutin::event::VirtualKeyCode::Left => camera.rotate_by(0.0, -1.0, 0.0), // TODO : glitch
+                    glutin::event::VirtualKeyCode::Right => camera.rotate_by(0.0, 1.0, 0.0),
 
-                    VirtualKeyCode::Q => exit = true,
+                    glutin::event::VirtualKeyCode::Q => exit = true,
                     _ => (),
                 }
             }
             if exit {
-                ControlFlow::Exit
+                glutin::event_loop::ControlFlow::Exit
             } else {
-                ControlFlow::Poll
+                glutin::event_loop::ControlFlow::Poll
             }
         }
-        WindowEvent::Resized(PhysicalSize { width, height }) => {
-            camera.aspect_ratio = (width as f32) / (height as f32);
-            ControlFlow::Poll
+        glutin::event::WindowEvent::Resized(glutin::dpi::PhysicalSize { width, height }) => {
+            camera.aspect_ratio = (*width as f32) / (*height as f32);
+            glutin::event_loop::ControlFlow::Poll
         }
-        WindowEvent::CloseRequested => ControlFlow::Exit,
-        _ => ControlFlow::Poll,
+        glutin::event::WindowEvent::CloseRequested => glutin::event_loop::ControlFlow::Exit,
+        _ => glutin::event_loop::ControlFlow::Poll,
     }
 }
