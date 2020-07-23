@@ -27,15 +27,15 @@ fn export_entries() {
                 miptex.width(mip_level).unwrap(),
                 miptex.height(mip_level).unwrap(),
             );
-            let mut imgbuf = image::ImageBuffer::new(width, height);
-            for x in 0..width {
-                for y in 0..height {
-                    *imgbuf.get_pixel_mut(x, y) =
-                        image::Rgb(miptex.color(mip_level, x, y).unwrap());
-                }
-            }
             let file_name = String::from(file_name) + ".png";
             println!("Saved {}", file_name);
-            imgbuf.save(output_dir.join(file_name)).unwrap();
+            image::save_buffer(
+                output_dir.join(file_name),
+                &miptex.pixels(mip_level).unwrap(),
+                width,
+                height,
+                image::ColorType::Rgb8,
+            )
+            .unwrap();
         });
 }

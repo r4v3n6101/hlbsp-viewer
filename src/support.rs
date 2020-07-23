@@ -18,16 +18,16 @@ impl Camera {
             aspect_ratio: 4.0 / 3.0,
             fov: Rad(3.14 / 2.0),
             near: 0.001,
-            far: 100.0,
+            far: 1000.0,
             position: Point3::new(0.0, 0.0, 0.0),
             rotation: Euler::new(Deg(0.0), Deg(0.0), Deg(0.0)),
         }
     }
 
     pub fn rotate_by(&mut self, pitch: Scal, yaw: Scal, roll: Scal) {
-        let pitch = (self.rotation.x.0 + pitch).max(90.0).min(0.0);
-        let yaw = (self.rotation.y.0 + yaw) % 360.0;
-        let roll = (self.rotation.z.0 + roll) % 90.0;
+        let pitch = self.rotation.x.0 + pitch;
+        let yaw = self.rotation.y.0 + yaw;
+        let roll = self.rotation.z.0 + roll;
         self.rotation.x = Deg(pitch);
         self.rotation.y = Deg(yaw);
         self.rotation.z = Deg(roll);

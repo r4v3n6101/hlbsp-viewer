@@ -2,7 +2,7 @@ mod support;
 
 use glium::{
     glutin::{
-        dpi::{LogicalSize, PhysicalPosition, PhysicalSize},
+        dpi::{LogicalSize, PhysicalSize},
         event::{Event, VirtualKeyCode, WindowEvent},
         event_loop::{ControlFlow, EventLoop},
         window::WindowBuilder,
@@ -10,11 +10,13 @@ use glium::{
     },
     index::{IndexBuffer, PrimitiveType},
     program,
-    program::Program,
+    texture::{RawImage2d, Texture2d},
     uniform,
     vertex::VertexBuffer,
     Display, Surface,
 };
+use itertools::Itertools;
+use map_impl::IndexedMap;
 use std::path::PathBuf;
 use structopt::StructOpt;
 use support::{Camera, GlVertex};
@@ -25,32 +27,48 @@ use support::{Camera, GlVertex};
     about = "A program allows you to view hlbsp maps (bsp v30)"
 )]
 struct Opt {
-    #[structopt(short, long = "bsp", parse(from_os_str))]
+    #[structopt(short, long = "bsp", parse(from_os_str), help = "Path to bsp map")]
     bsp_path: PathBuf,
+    #[structopt(
+        short,
+        long = "wad",
+        parse(from_os_str),
+        help = "Paths of wad files which are required to load textures"
+    )]
+    wad_path: Vec<PathBuf>,
+    #[structopt(
+        short,
+        long = "mip",
+        default_value = "0",
+        help = "Mip level of textures to load"
+    )]
+    mip_level: usize,
 }
 
 fn main() {
     let opt = Opt::from_args();
     let file = std::fs::read(&opt.bsp_path).unwrap();
     let bsp_map = bsp::RawMap::parse(&file).unwrap();
-    let map = map_impl::IndexedMap::new(&bsp_map);
+    let mut map = IndexedMap::new(&bsp_map);
+    let wad_files: Vec<_> = opt
+        .wad_path
+        .iter()
+        .map(|path| std::fs::read(path).unwrap())
+        .collect();
+    let archives: Vec<_> = wad_files
+        .iter()
+        .map(|file| wad::Archive::parse(&file).unwrap())
+        .collect();
+    substitute_wad_textures(&mut map, &archives);
 
-    let root_model = map.root_model();
-    let vertices: Vec<_> = map
-        .calculate_vertices(root_model)
-        .into_iter()
-        .map(GlVertex::from)
-        .collect();
-    let indices: Vec<_> = map
-        .indices_triangulated(root_model)
-        .into_iter()
-        .flat_map(|(_, indices)| indices.into_iter().map(|x| x as u32))
-        .collect();
-    start_window_loop(root_model.origin, &vertices, &indices);
+    start_window_loop(&map, 0); // TODO : tempory mip_level
 }
 
-// TODO : indices are actually u16
-fn start_window_loop(origin: (f32, f32, f32), vertices: &[GlVertex], indices: &[u32]) {
+fn substitute_wad_textures<'a>(map: &mut IndexedMap<'a>, archives: &'a [wad::Archive<'a>]) {
+    archives.iter().for_each(|a| map.replace_empty_textures(a));
+}
+
+fn start_window_loop(map: &IndexedMap, mip_level: usize) {
     let event_loop = EventLoop::new();
     let wb = WindowBuilder::new()
         .with_title("hlbsp viewer")
@@ -58,10 +76,38 @@ fn start_window_loop(origin: (f32, f32, f32), vertices: &[GlVertex], indices: &[
     let cb = ContextBuilder::new();
 
     let mut camera = Camera::new();
-    let mut mouse_pos = PhysicalPosition::new(0.0, 0.0);
     let display = Display::new(wb, cb, &event_loop).unwrap();
-    let vbo = VertexBuffer::new(&display, vertices).unwrap();
-    let ibo = IndexBuffer::new(&display, PrimitiveType::TrianglesList, indices).unwrap();
+
+    let root_model = map.root_model();
+    let vertices: Vec<GlVertex> = map
+        .calculate_vertices(root_model)
+        .into_iter()
+        .map(GlVertex::from)
+        .collect();
+    let textured_ibos: Vec<_> = map
+        .indices_triangulated(root_model)
+        .into_iter()
+        .group_by(|&(tex, _)| tex)
+        .into_iter()
+        .map(|(tex, group)| {
+            let dims = (
+                tex.width(mip_level).unwrap(),
+                tex.height(mip_level).unwrap(),
+            );
+            let image = RawImage2d::from_raw_rgb(tex.pixels(mip_level).unwrap(), dims);
+            let texture = Texture2d::new(&display, image).unwrap();
+
+            let indices: Vec<_> = group
+                .flat_map(|(_, indices)| indices.into_iter().rev().map(|x| x as u16))
+                .collect();
+            let ibo = IndexBuffer::new(&display, PrimitiveType::TrianglesList, &indices).unwrap();
+            (texture, ibo)
+        })
+        .collect();
+
+    let origin = root_model.origin;
+    let origin = [origin.0, origin.1, origin.2];
+    let vbo = VertexBuffer::new(&display, &vertices).unwrap();
     let program = program!(&display,
          140 => {
              vertex: "
@@ -86,72 +132,56 @@ fn start_window_loop(origin: (f32, f32, f32), vertices: &[GlVertex], indices: &[
              fragment: "
                 #version 140
                 in vec2 o_tex_coords;
-                out vec4 f_color;
+                uniform sampler2D tex;
 
                 void main() {
-                    vec2 tt = fract(o_tex_coords);
-                    if(tt.x > 0.5) {
-                        f_color = vec4(1, 0, 0, 1.0);
-                    }else{
-                        f_color = vec4(0, 1, 0, 1.0);
-                    }
+                    gl_FragColor = texture2D(tex, o_tex_coords);
                 }
             "
          },
     )
     .unwrap();
+    let draw_params = glium::DrawParameters {
+        depth: glium::Depth {
+            test: glium::DepthTest::IfLess,
+            write: true,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
             window_id: _,
             event: wevent,
-        } => *control_flow = process_window(wevent, &mut mouse_pos, &mut camera),
+        } => *control_flow = process_window(wevent, &mut camera),
         _ => {
             let next_frame_time =
                 std::time::Instant::now() + std::time::Duration::from_nanos(16_666_667);
             *control_flow = ControlFlow::WaitUntil(next_frame_time);
-            draw(&display, &vbo, &ibo, &program, origin, &camera);
+
+            let mut target = display.draw();
+            target.clear_color_and_depth((1.0, 1.0, 0.0, 1.0), 1.0);
+            let persp: [[_; 4]; 4] = camera.perspective().into();
+            let view: [[_; 4]; 4] = camera.view().into();
+
+            textured_ibos.iter().for_each(|(tex, ibo)| {
+                let uniforms = uniform! {
+                    proj: persp,
+                    view: view,
+                    origin: origin,
+                    tex: tex,
+                };
+                target
+                    .draw(&vbo, ibo, &program, &uniforms, &draw_params)
+                    .unwrap();
+            });
+            target.finish().unwrap();
         }
     });
 }
 
-fn draw(
-    display: &Display,
-    vbo: &VertexBuffer<GlVertex>,
-    ibo: &IndexBuffer<u32>,
-    program: &Program,
-    origin: (f32, f32, f32),
-    camera: &Camera,
-) {
-    let persp: [[_; 4]; 4] = camera.perspective().into();
-    let view: [[_; 4]; 4] = camera.view().into();
-    let uniforms = uniform! {
-        proj: persp,
-        view: view,
-        origin: [origin.0, origin.1, origin.2],
-    };
-
-    let draw_parameters = glium::DrawParameters {
-        backface_culling: glium::BackfaceCullingMode::CullCounterClockwise,
-        depth: glium::Depth {
-            test: glium::DepthTest::IfMoreOrEqual,
-            ..Default::default()
-        },
-        ..Default::default()
-    };
-    let mut target = display.draw();
-    target.clear_color(1.0, 1.0, 0.0, 1.0);
-    target
-        .draw(vbo, ibo, program, &uniforms, &draw_parameters)
-        .unwrap();
-    target.finish().unwrap();
-}
-
-fn process_window(
-    wevent: WindowEvent,
-    mouse_pos: &mut PhysicalPosition<f64>,
-    camera: &mut Camera,
-) -> ControlFlow {
+fn process_window(wevent: WindowEvent, camera: &mut Camera) -> ControlFlow {
     match wevent {
         WindowEvent::KeyboardInput { input, .. } => {
             let mut exit = false;
@@ -161,10 +191,14 @@ fn process_window(
                     VirtualKeyCode::A => camera.position.x -= 0.01,
                     VirtualKeyCode::S => camera.position.z -= 0.01,
                     VirtualKeyCode::D => camera.position.x += 0.01,
-                    VirtualKeyCode::Up => camera.position.y += 0.01,
-                    VirtualKeyCode::Down => camera.position.y -= 0.01,
-                    VirtualKeyCode::Left => camera.rotate_by(0.0, -1.0, 0.0),
+                    VirtualKeyCode::Space => camera.position.y += 0.01,
+                    VirtualKeyCode::LControl => camera.position.y -= 0.01,
+
+                    VirtualKeyCode::Up => camera.rotate_by(1.0, 0.0, 0.0),
+                    VirtualKeyCode::Down => camera.rotate_by(-1.0, 0.0, 0.0),
+                    VirtualKeyCode::Left => camera.rotate_by(0.0, -1.0, 0.0), // TODO : glitch
                     VirtualKeyCode::Right => camera.rotate_by(0.0, 1.0, 0.0),
+
                     VirtualKeyCode::Q => exit = true,
                     _ => (),
                 }
@@ -174,14 +208,6 @@ fn process_window(
             } else {
                 ControlFlow::Poll
             }
-        }
-        WindowEvent::CursorMoved { position, .. } => {
-            let dx = (position.x - mouse_pos.x) as f32;
-            let dy = (position.y - mouse_pos.y) as f32;
-            *mouse_pos = position;
-
-            // TODO : camera.rotate_by(dx * 0.1, -dy * 0.1, 0.0);
-            ControlFlow::Poll
         }
         WindowEvent::Resized(PhysicalSize { width, height }) => {
             camera.aspect_ratio = (width as f32) / (height as f32);
