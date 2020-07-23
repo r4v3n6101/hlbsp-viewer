@@ -110,34 +110,8 @@ fn start_window_loop(map: &IndexedMap, mip_level: usize) {
     let vbo = VertexBuffer::new(&display, &vertices).unwrap();
     let program = program!(&display,
          140 => {
-             vertex: "
-                #version 140
-
-                uniform mat4 proj;
-                uniform mat4 view;
-                uniform vec3 origin;
-
-                in vec3 position;
-                in vec2 tex_coords;
-                
-                out vec2 o_tex_coords;
-
-                void main() {
-                    o_tex_coords =  tex_coords;
-                    vec3 pos = (position - origin) * 0.001;
-                    gl_Position = proj * view * vec4(vec3(pos.x, pos.z, -pos.y), 1.0);
-                }
-            ",
-
-             fragment: "
-                #version 140
-                in vec2 o_tex_coords;
-                uniform sampler2D tex;
-
-                void main() {
-                    gl_FragColor = texture2D(tex, o_tex_coords);
-                }
-            "
+             vertex: include_str!("../shaders/vert.glsl"),
+             fragment: include_str!("../shaders/frag.glsl"),
          },
     )
     .unwrap();
