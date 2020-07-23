@@ -81,10 +81,6 @@ impl<'a> IndexedMap<'a> {
         self.entities
     }
 
-    pub fn textures(&self) -> &[MipTexture] {
-        &self.textures
-    }
-
     pub fn root_model(&self) -> &Model {
         &self.models[0]
     }
@@ -139,12 +135,12 @@ impl<'a> IndexedMap<'a> {
         self.faces(model)
             .map(move |f| {
                 let vertices_num = f.surfedge_num;
-                let indices = i..i + vertices_num;
+                let indices = (i..i + vertices_num).collect();
                 i += vertices_num;
 
                 let texinfo = &self.texinfos[f.texinfo_id];
                 let texture = &self.textures[texinfo.texture_id];
-                (texture, indices.collect())
+                (texture, indices)
             })
             .collect()
     }
@@ -156,21 +152,14 @@ impl<'a> IndexedMap<'a> {
             .collect()
     }
 
-    pub fn empty_textures(&self) -> Vec<&str> {
-        self.textures
-            .iter()
-            .filter_map(|tex| if tex.empty() { Some(tex.name()) } else { None })
-            .collect()
-    }
-
     pub fn replace_empty_textures(&mut self, wad: &'a Archive<'a>) {
         self.textures
             .iter_mut()
-            .filter(|t| t.empty())
+            .filter(|t| t.is_empty())
             .for_each(|miptex| {
                 let name = miptex.name().to_uppercase();
                 if let Some(entry) = wad.get_by_name(&name) {
-                    *miptex = MipTexture::parse(entry.data()).unwrap(); // TODO : same
+                    *miptex = MipTexture::parse(entry.data()).unwrap(); // TODO : remove unwrap
                 }
             });
     }

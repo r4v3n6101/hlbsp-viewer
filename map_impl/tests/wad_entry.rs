@@ -28,7 +28,6 @@ fn export_entries() {
                 miptex.height(mip_level).unwrap(),
             );
             let file_name = String::from(file_name) + ".png";
-            println!("Saved {}", file_name);
             image::save_buffer(
                 output_dir.join(file_name),
                 &miptex.pixels(mip_level).unwrap(),
@@ -37,5 +36,6 @@ fn export_entries() {
                 image::ColorType::Rgb8,
             )
             .unwrap();
+            println!("Saved {}", file_name);
         });
 }

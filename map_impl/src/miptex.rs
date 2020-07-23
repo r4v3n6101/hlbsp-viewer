@@ -112,7 +112,7 @@ impl<'a> MipTexture<'a> {
         }
     }
 
-    pub fn empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.color_table.is_none() || self.color_indices.is_none()
     }
 
