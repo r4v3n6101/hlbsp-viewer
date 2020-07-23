@@ -1,4 +1,7 @@
-use crate::math::{perspective, vec3, Deg, Euler, Matrix3, Matrix4, Point3, Rad, Scal, Vector3};
+use cgmath::{perspective, vec3, Deg, Euler, Matrix3, Matrix4, Point3, Rad, Vector3};
+use glium::implement_vertex;
+
+pub type Scal = f32;
 
 pub struct Camera {
     pub aspect_ratio: Scal,
@@ -13,7 +16,7 @@ impl Camera {
     pub fn new() -> Self {
         Self {
             aspect_ratio: 4.0 / 3.0,
-            fov: Rad(3.14/2.0),
+            fov: Rad(3.14 / 2.0),
             near: 0.001,
             far: 100.0,
             position: Point3::new(0.0, 0.0, 0.0),
@@ -47,3 +50,20 @@ impl Camera {
         )
     }
 }
+
+#[derive(Copy, Clone)]
+pub struct GlVertex {
+    pub position: [f32; 3],
+    pub tex_coords: [f32; 2],
+    pub normal: [f32; 3],
+}
+impl From<map_impl::Vertex> for GlVertex {
+    fn from(t: map_impl::Vertex) -> Self {
+        Self {
+            position: t.position,
+            tex_coords: t.tex_coords,
+            normal: t.normal,
+        }
+    }
+}
+implement_vertex!(GlVertex, position, tex_coords, normal);

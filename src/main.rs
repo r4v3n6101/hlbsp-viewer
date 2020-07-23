@@ -1,3 +1,5 @@
+mod support;
+
 use glium::{
     glutin::{
         dpi::{LogicalSize, PhysicalPosition, PhysicalSize},
@@ -15,6 +17,7 @@ use glium::{
 };
 use std::path::PathBuf;
 use structopt::StructOpt;
+use support::{Camera, GlVertex};
 
 #[derive(Debug, StructOpt)]
 #[structopt(
@@ -29,25 +32,32 @@ struct Opt {
 fn main() {
     let opt = Opt::from_args();
     let file = std::fs::read(&opt.bsp_path).unwrap();
-    let map_render = render::map::MapRender::new(&bsp::Map::parse(&file).unwrap());
-    let vertices = map_render.get_vertices();
-    let indices = map_render
-        .get_indices()
+    let bsp_map = bsp::RawMap::parse(&file).unwrap();
+    let map = map_impl::IndexedMap::new(&bsp_map);
+
+    let root_model = map.root_model();
+    let vertices: Vec<_> = map
+        .calculate_vertices(root_model)
         .into_iter()
-        .map(|x| x as u32)
-        .collect::<Vec<u32>>(); // TODO : temporary workaround, convert inside `render` module
-    start_window_loop(map_render.root_model().origin, &vertices, &indices);
+        .map(GlVertex::from)
+        .collect();
+    let indices: Vec<_> = map
+        .indices_triangulated(root_model)
+        .into_iter()
+        .flat_map(|(_, indices)| indices.into_iter().map(|x| x as u32))
+        .collect();
+    start_window_loop(root_model.origin, &vertices, &indices);
 }
 
 // TODO : indices are actually u16
-fn start_window_loop(origin: (f32, f32, f32), vertices: &[render::map::Vertex], indices: &[u32]) {
+fn start_window_loop(origin: (f32, f32, f32), vertices: &[GlVertex], indices: &[u32]) {
     let event_loop = EventLoop::new();
     let wb = WindowBuilder::new()
         .with_title("hlbsp viewer")
         .with_inner_size(LogicalSize::new(1024.0, 768.0));
     let cb = ContextBuilder::new();
 
-    let mut camera = render::camera::Camera::new();
+    let mut camera = Camera::new();
     let mut mouse_pos = PhysicalPosition::new(0.0, 0.0);
     let display = Display::new(wb, cb, &event_loop).unwrap();
     let vbo = VertexBuffer::new(&display, vertices).unwrap();
@@ -107,11 +117,11 @@ fn start_window_loop(origin: (f32, f32, f32), vertices: &[render::map::Vertex], 
 
 fn draw(
     display: &Display,
-    vbo: &VertexBuffer<render::map::Vertex>,
+    vbo: &VertexBuffer<GlVertex>,
     ibo: &IndexBuffer<u32>,
     program: &Program,
     origin: (f32, f32, f32),
-    camera: &render::camera::Camera,
+    camera: &Camera,
 ) {
     let persp: [[_; 4]; 4] = camera.perspective().into();
     let view: [[_; 4]; 4] = camera.view().into();
@@ -140,7 +150,7 @@ fn draw(
 fn process_window(
     wevent: WindowEvent,
     mouse_pos: &mut PhysicalPosition<f64>,
-    camera: &mut render::camera::Camera,
+    camera: &mut Camera,
 ) -> ControlFlow {
     match wevent {
         WindowEvent::KeyboardInput { input, .. } => {
