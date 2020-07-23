@@ -1,0 +1,13 @@
+[package]
+name = "map_impl"
+version = "0.1.0"
+authors = ["r4v3n6101 <raven6107@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+nom = "*"
+bsp = { path = "../bsp/" }
+wad = { path = "../wad/" }
+
+[dev-dependencies]
+image = "*"

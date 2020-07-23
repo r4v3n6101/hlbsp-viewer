@@ -7,4 +7,7 @@ edition = "2018"
 [dependencies]
 structopt = "*"
 glium = "*"
-bsp = { path = "bsp/" }
+map_impl = { path = "map_impl" }
+bsp = { path = "bsp" }
+wad = { path = "wad" }
+itertools = "*"

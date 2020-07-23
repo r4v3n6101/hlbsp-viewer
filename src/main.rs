@@ -1,5 +1,3 @@
-mod camera;
-
 use glium::{
     glutin::{
         dpi::{LogicalSize, PhysicalPosition, PhysicalSize},
@@ -49,7 +47,7 @@ fn start_window_loop(origin: (f32, f32, f32), vertices: &[render::map::Vertex], 
         .with_inner_size(LogicalSize::new(1024.0, 768.0));
     let cb = ContextBuilder::new();
 
-    let mut camera = camera::Camera::new();
+    let mut camera = render::camera::Camera::new();
     let mut mouse_pos = PhysicalPosition::new(0.0, 0.0);
     let display = Display::new(wb, cb, &event_loop).unwrap();
     let vbo = VertexBuffer::new(&display, vertices).unwrap();
@@ -113,7 +111,7 @@ fn draw(
     ibo: &IndexBuffer<u32>,
     program: &Program,
     origin: (f32, f32, f32),
-    camera: &camera::Camera,
+    camera: &render::camera::Camera,
 ) {
     let persp: [[_; 4]; 4] = camera.perspective().into();
     let view: [[_; 4]; 4] = camera.view().into();
@@ -142,7 +140,7 @@ fn draw(
 fn process_window(
     wevent: WindowEvent,
     mouse_pos: &mut PhysicalPosition<f64>,
-    camera: &mut camera::Camera,
+    camera: &mut render::camera::Camera,
 ) -> ControlFlow {
     match wevent {
         WindowEvent::KeyboardInput { input, .. } => {
