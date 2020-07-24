@@ -133,12 +133,10 @@ fn print_faces_and_save_textures<W: Write>(
 ) {
     let model = map.root_model();
     if triangulate {
-        for (key, group) in &map
-            .indices_triangulated(model)
-            .into_iter()
-            .group_by(|&(tex, _)| tex)
-        // TODO : doesn't make unique groups, key is repeating so that textures saved multiple times
-        {
+        // TODO : will be replaced with new group by
+        let mut indices = map.indices_triangulated(model);
+        indices.sort_by(|(a, _), (b, _)| a.name().partial_cmp(b.name()).unwrap());
+        for (key, group) in &indices.into_iter().group_by(|&(tex, _)| tex) {
             let name = key.name();
             writeln!(obj_writer, "usemtl {}", name).expect("Failed writing usemtl");
             print_mtl_materials(mtl_writer, name);
@@ -160,11 +158,10 @@ fn print_faces_and_save_textures<W: Write>(
             });
         }
     } else {
-        for (key, group) in &map
-            .indices_with_texture(model)
-            .into_iter()
-            .group_by(|&(tex, _)| tex)
-        {
+        // TODO : same as above
+        let mut indices = map.indices_with_texture(model);
+        indices.sort_by(|(a, _), (b, _)| a.name().partial_cmp(b.name()).unwrap());
+        for (key, group) in &indices.into_iter().group_by(|&(tex, _)| tex) {
             let name = key.name();
             writeln!(obj_writer, "usemtl {}", name).expect("Failed writing usemtl");
             print_mtl_materials(mtl_writer, name);
