@@ -47,7 +47,7 @@ fn main() {
         .collect();
     substitute_wad_textures(&mut map, &archives);
 
-    start_window_loop(&map, 0); // TODO : tempory mip_level
+    start_window_loop(&map, opt.mip_level);
 }
 
 fn substitute_wad_textures<'a>(map: &mut IndexedMap<'a>, archives: &'a [wad::Archive<'a>]) {
@@ -73,6 +73,7 @@ fn start_window_loop(map: &IndexedMap, mip_level: usize) {
     let textured_ibos: Vec<_> = map
         .indices_triangulated(root_model)
         .into_iter()
+        .filter(|&(tex, _)| tex.name() != "sky" && tex.name() != "aaatrigger")
         .group_by(|&(tex, _)| tex)
         .into_iter()
         .map(|(tex, group)| {
@@ -111,9 +112,9 @@ fn start_window_loop(map: &IndexedMap, mip_level: usize) {
         depth: glium::Depth {
             test: glium::DepthTest::IfLess,
             write: true,
-            ..Default::default()
+            ..glium::Depth::default()
         },
-        ..Default::default()
+        ..glium::DrawParameters::default()
     };
 
     event_loop.run(move |event, _, control_flow| {
