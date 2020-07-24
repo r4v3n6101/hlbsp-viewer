@@ -70,12 +70,15 @@ fn start_window_loop(map: &IndexedMap, mip_level: usize) {
         .into_iter()
         .map(GlVertex::from)
         .collect();
-    let textured_ibos: Vec<_> = map
-        .indices_triangulated(root_model)
+    let mut indices_triangulated = map.indices_triangulated(root_model);
+    // TODO : temporal until a new group by
+    indices_triangulated.sort_by(|(a, _), (b, _)| a.name().partial_cmp(b.name()).unwrap());
+    let textured_ibos: Vec<_> = indices_triangulated
         .into_iter()
         .filter(|&(tex, _)| tex.name() != "sky" && tex.name() != "aaatrigger")
         .group_by(|&(tex, _)| tex)
         .into_iter()
+        .inspect(|(tex, _)| println!("Texture: {}", tex.name()))
         .map(|(tex, group)| {
             let dims = (
                 tex.width(mip_level).unwrap(),
