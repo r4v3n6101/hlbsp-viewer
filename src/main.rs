@@ -81,10 +81,14 @@ fn main() {
     }
     print_vertices(&mut obj_writer, &map);
     writeln!(&mut obj_writer, "mtllib out.mtl").expect("Failed writing mtllib");
-    print_faces(&mut obj_writer, &map, opt.triangulate);
-    map.textures()
-        .iter()
-        .for_each(|tex| save_texture(&mut mtl_writer, &opt.output_dir, tex, opt.mip_level));
+    print_faces_and_save_textures(
+        &mut obj_writer,
+        &mut mtl_writer,
+        &opt.output_dir,
+        &map,
+        opt.triangulate,
+        opt.mip_level,
+    );
 }
 
 fn print_vertices<W: Write>(writer: &mut W, map: &IndexedMap) {
@@ -112,16 +116,34 @@ fn print_vertices<W: Write>(writer: &mut W, map: &IndexedMap) {
     });
 }
 
-fn print_faces<W: Write>(obj_writer: &mut W, map: &IndexedMap, triangulate: bool) {
+fn print_mtl_materials<W: Write>(mtl_writer: &mut W, name: &str) {
+    writeln!(mtl_writer, "newmtl {}", name).expect("Failed writing mtl");
+    writeln!(mtl_writer, "Tr 1").expect("Failed writing mtl");
+    writeln!(mtl_writer, "map_Kd {}.png", name).expect("Failed writing mtl");
+    writeln!(mtl_writer, "map_Ka {}.png", name).expect("Failed writing mtl");
+}
+
+fn print_faces_and_save_textures<W: Write>(
+    obj_writer: &mut W,
+    mtl_writer: &mut W,
+    output_dir: &PathBuf,
+    map: &IndexedMap,
+    triangulate: bool,
+    mip_level: usize,
+) {
     let model = map.root_model();
     if triangulate {
         for (key, group) in &map
             .indices_triangulated(model)
             .into_iter()
-            .group_by(|(tex, _)| tex.name())
+            .group_by(|&(tex, _)| tex)
+        // TODO : doesn't make unique groups, key is repeating so that textures saved multiple times
         {
-            writeln!(obj_writer, "usemtl {}", key).expect("Failed writing usemtl");
-            group.into_iter().for_each(|(_, indices)| {
+            let name = key.name();
+            writeln!(obj_writer, "usemtl {}", name).expect("Failed writing usemtl");
+            print_mtl_materials(mtl_writer, name);
+            save_texture(output_dir, key, mip_level);
+            group.for_each(|(_, indices)| {
                 for i in 0..indices.len() / 3 {
                     let v1 = indices[3 * i];
                     let v2 = indices[3 * i + 1];
@@ -138,49 +160,44 @@ fn print_faces<W: Write>(obj_writer: &mut W, map: &IndexedMap, triangulate: bool
             });
         }
     } else {
-        map.indices_with_texture(model)
+        for (key, group) in &map
+            .indices_with_texture(model)
             .into_iter()
-            .for_each(|(tex, indices)| {
-                writeln!(obj_writer, "usemtl {}", tex.name()).expect("Failed writing usemtl");
+            .group_by(|&(tex, _)| tex)
+        {
+            let name = key.name();
+            writeln!(obj_writer, "usemtl {}", name).expect("Failed writing usemtl");
+            print_mtl_materials(mtl_writer, name);
+            save_texture(output_dir, key, mip_level);
+            group.for_each(|(_, indices)| {
                 let mut s = String::from("f ");
                 indices
                     .into_iter()
                     .for_each(|i| s += &format!("{0}/{0}/{0} ", i + 1));
                 writeln!(obj_writer, "{}", s).expect("Failed writing face");
             });
+        }
     }
 }
 
-fn save_texture<W: Write>(
-    mtl_writer: &mut W,
-    output_dir: &PathBuf,
-    texture: &MipTexture,
-    mip_level: usize,
-) {
+fn save_texture(output_dir: &PathBuf, texture: &MipTexture, mip_level: usize) {
     let name = texture.name();
-    writeln!(mtl_writer, "newmtl {}", name).expect("Failed writing mtl");
-    writeln!(mtl_writer, "Tr 1").expect("Failed writing mtl");
-    writeln!(mtl_writer, "map_Kd {}.png", name).expect("Failed writing mtl");
-    writeln!(mtl_writer, "map_Ka {}.png", name).expect("Failed writing mtl");
     let (width, height) = (
         texture.width(mip_level).expect("Failed acquiring width"),
         texture.height(mip_level).expect("Failed acquiring height"),
     );
-    if !texture.empty() {
-        let mut imgbuf = image::ImageBuffer::new(width, height);
-        for x in 0..width {
-            for y in 0..height {
-                *imgbuf.get_pixel_mut(x, y) = image::Rgb(
-                    texture
-                        .color(mip_level, x, y)
-                        .expect("Failed acquiring texture color"),
-                );
-            }
-        }
+    if !texture.is_empty() {
         let file_name = String::from(texture.name()) + ".png";
-        imgbuf
-            .save(output_dir.join(file_name))
-            .expect("Failed saving png file");
+        image::save_buffer(
+            output_dir.join(file_name),
+            &texture
+                .pixels(mip_level)
+                .expect("Failed acquiring pixels of texture"),
+            width,
+            height,
+            image::ColorType::Rgb8,
+        )
+        .expect("Failed saving texture");
     } else {
         println!("Not found: {}", name);
     }

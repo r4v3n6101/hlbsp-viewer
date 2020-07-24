@@ -10,4 +10,8 @@ map_impl = { path = "map_impl" }
 bsp = { path = "bsp" }
 wad = { path = "wad" }
 itertools = "*"
-image = "*"
+
+[dependencies.image]
+version = "*"
+default-features = false
+features = ["png"]
