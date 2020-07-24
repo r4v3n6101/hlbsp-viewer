@@ -25,8 +25,8 @@ fn dot_product(a: &Vec3, b: &Vec3) -> f32 {
 
 fn calculate_uvs(vertex: &Vec3, texinfo: &TexInfo, texture: &MipTexture) -> UV {
     (
-        (dot_product(vertex, &texinfo.vs) /*+ texinfo.ss*/) / (texture.full_width() as f32),
-        (dot_product(vertex, &texinfo.vt) /*+ texinfo.st*/) / (texture.full_height() as f32),
+        (dot_product(vertex, &texinfo.vs) + texinfo.ss) / (texture.full_width() as f32),
+        (dot_product(vertex, &texinfo.vt) + texinfo.st) / (texture.full_height() as f32),
     )
 }
 
@@ -108,7 +108,7 @@ impl<'a> IndexedMap<'a> {
             })
     }
 
-    pub fn calculate_vertices(&'a self, model: &'a Model) -> Vec<Vertex> {
+    pub fn calculate_vertices(&self, model: &'a Model) -> Vec<Vertex> {
         self.faces(model)
             .flat_map(|f| {
                 let vertices = self.face_to_vertices(f);
@@ -134,43 +134,36 @@ impl<'a> IndexedMap<'a> {
     }
 
     // TODO : comment why not iterators
-    pub fn indices_with_texture(&'a self, model: &'a Model) -> Vec<(&'a MipTexture, Vec<usize>)> {
+    pub fn indices_with_texture(&self, model: &'a Model) -> Vec<(&'a MipTexture, Vec<usize>)> {
         let mut i = 0;
         self.faces(model)
             .map(move |f| {
                 let vertices_num = f.surfedge_num;
-                let indices = i..i + vertices_num;
+                let indices = (i..i + vertices_num).collect();
                 i += vertices_num;
 
                 let texinfo = &self.texinfos[f.texinfo_id];
                 let texture = &self.textures[texinfo.texture_id];
-                (texture, indices.collect())
+                (texture, indices)
             })
             .collect()
     }
 
-    pub fn indices_triangulated(&'a self, model: &'a Model) -> Vec<(&'a MipTexture, Vec<usize>)> {
+    pub fn indices_triangulated(&self, model: &'a Model) -> Vec<(&'a MipTexture, Vec<usize>)> {
         self.indices_with_texture(model)
             .into_iter()
             .map(|(t, indices)| (t, triangulated(indices)))
             .collect()
     }
 
-    pub fn empty_textures(&self) -> Vec<&str> {
-        self.textures
-            .iter()
-            .filter_map(|tex| if tex.empty() { Some(tex.name()) } else { None })
-            .collect()
-    }
-
     pub fn replace_empty_textures(&mut self, wad: &'a Archive<'a>) {
         self.textures
             .iter_mut()
-            .filter(|t| t.empty())
+            .filter(|t| t.is_empty())
             .for_each(|miptex| {
                 let name = miptex.name().to_uppercase();
                 if let Some(entry) = wad.get_by_name(&name) {
-                    *miptex = MipTexture::parse(entry.data()).unwrap(); // TODO : same
+                    *miptex = MipTexture::parse(entry.data()).unwrap(); // TODO : remove unwrap
                 }
             });
     }

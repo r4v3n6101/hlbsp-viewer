@@ -28,6 +28,12 @@ pub struct MipTexture<'a> {
     color_table: Option<&'a [u8]>,
 }
 
+impl PartialEq for MipTexture<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.name() == other.name()
+    }
+}
+
 impl<'a> MipTexture<'a> {
     pub fn parse(file: &'a [u8]) -> Result<MipTexture<'a>, nom::Err<ParseError<'a>>> {
         let (_, (name, width, height, offsets)) = tuple((
@@ -106,19 +112,18 @@ impl<'a> MipTexture<'a> {
         }
     }
 
-    pub fn empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.color_table.is_none() || self.color_indices.is_none()
     }
 
-    pub fn color(&self, mip_level: usize, x: u32, y: u32) -> Option<[u8; 3]> {
-        let width = self.width(mip_level)?;
-        let pixel = (width * y + x) as usize;
-        let index = (*self.color_indices?[mip_level].get(pixel)?) as usize;
-        let (r, g, b) = (
-            self.color_table?[3 * index],
-            self.color_table?[3 * index + 1],
-            self.color_table?[3 * index + 2],
-        );
-        Some([r, g, b])
+    pub fn pixels(&self, mip_level: usize) -> Option<Vec<u8>> {
+        let color_table = self.color_table?;
+        Some(
+            self.color_indices?[mip_level]
+                .iter()
+                .map(|&i| i as usize)
+                .flat_map(|i| color_table[3 * i..3 * (i + 1)].iter().copied())
+                .collect(),
+        )
     }
 }
