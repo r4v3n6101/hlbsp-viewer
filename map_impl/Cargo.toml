@@ -9,5 +9,7 @@ nom = "*"
 bsp = { path = "../bsp/" }
 wad = { path = "../wad/" }
 
-[dev-dependencies]
-image = "*"
+[dev-dependencies.image]
+version = "*"
+default-features = false
+features = ["png"]

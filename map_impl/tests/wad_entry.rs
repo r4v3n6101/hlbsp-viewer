@@ -29,13 +29,13 @@ fn export_entries() {
             );
             let file_name = String::from(file_name) + ".png";
             image::save_buffer(
-                output_dir.join(file_name),
+                output_dir.join(&file_name),
                 &miptex.pixels(mip_level).unwrap(),
                 width,
                 height,
                 image::ColorType::Rgb8,
             )
             .unwrap();
-            println!("Saved {}", file_name);
+            println!("Saved {}", &file_name);
         });
 }
