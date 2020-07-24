@@ -81,10 +81,6 @@ impl<'a> IndexedMap<'a> {
         self.entities
     }
 
-    pub fn textures(&self) -> &[MipTexture] {
-        &self.textures
-    }
-
     pub fn root_model(&self) -> &Model {
         &self.models[0]
     }
