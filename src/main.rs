@@ -162,16 +162,14 @@ fn process_window(
             let mut exit = false;
             if let Some(virt_keycode) = input.virtual_keycode {
                 match virt_keycode {
-                    glutin::event::VirtualKeyCode::W => camera.position.z += 0.01,
-                    glutin::event::VirtualKeyCode::A => camera.position.x -= 0.01,
-                    glutin::event::VirtualKeyCode::S => camera.position.z -= 0.01,
-                    glutin::event::VirtualKeyCode::D => camera.position.x += 0.01,
-                    glutin::event::VirtualKeyCode::Space => camera.position.y += 0.01,
-                    glutin::event::VirtualKeyCode::LControl => camera.position.y -= 0.01,
+                    glutin::event::VirtualKeyCode::W => camera.move_forward(0.01),
+                    glutin::event::VirtualKeyCode::S => camera.move_back(0.01),
+                    glutin::event::VirtualKeyCode::A => camera.move_left(0.01),
+                    glutin::event::VirtualKeyCode::D => camera.move_right(0.01),
 
                     glutin::event::VirtualKeyCode::Up => camera.rotate_by(1.0, 0.0, 0.0),
                     glutin::event::VirtualKeyCode::Down => camera.rotate_by(-1.0, 0.0, 0.0),
-                    glutin::event::VirtualKeyCode::Left => camera.rotate_by(0.0, -1.0, 0.0), // TODO : glitch
+                    glutin::event::VirtualKeyCode::Left => camera.rotate_by(0.0, -1.0, 0.0), // TODO : move to mouse control
                     glutin::event::VirtualKeyCode::Right => camera.rotate_by(0.0, 1.0, 0.0),
 
                     glutin::event::VirtualKeyCode::Q => exit = true,
