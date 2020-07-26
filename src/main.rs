@@ -81,7 +81,6 @@ fn start_window_loop(map: &IndexedMap, mip_level: usize) {
     let mut camera = Camera::new();
     let display = glium::Display::new(wb, cb, &event_loop).unwrap();
     grab_cursor(display.gl_window().window());
-    let mut mouse_pos = get_window_center(display.gl_window().window());
 
     let root_model = map.root_model();
     let vertices: Vec<GlVertex> = map
@@ -140,39 +139,40 @@ fn start_window_loop(map: &IndexedMap, mip_level: usize) {
     };
 
     event_loop.run(move |event, _, control_flow| {
-        if let glutin::event::Event::WindowEvent {
-            window_id: _,
-            event: wevent,
-        } = event
-        {
-            *control_flow = process_window(
-                display.gl_window().window(),
-                &wevent,
-                &mut mouse_pos,
-                &mut camera,
-            )
-        } else {
-            let next_frame_time =
-                std::time::Instant::now() + std::time::Duration::from_nanos(16_666_667);
-            *control_flow = glutin::event_loop::ControlFlow::WaitUntil(next_frame_time);
+        let gl_window = display.gl_window();
+        let window = gl_window.window();
+        match event {
+            glutin::event::Event::WindowEvent {
+                window_id: _,
+                event: wevent,
+            } => *control_flow = process_window(window, &wevent, &mut camera),
+            glutin::event::Event::RedrawRequested(_) => {
+                let mut target = display.draw();
+                target.clear_color_and_depth((1.0, 1.0, 0.0, 1.0), 1.0);
+                let persp: [[_; 4]; 4] = camera.perspective().into();
+                let view: [[_; 4]; 4] = camera.view().into();
 
-            let mut target = display.draw();
-            target.clear_color_and_depth((1.0, 1.0, 0.0, 1.0), 1.0);
-            let persp: [[_; 4]; 4] = camera.perspective().into();
-            let view: [[_; 4]; 4] = camera.view().into();
-
-            textured_ibos.iter().for_each(|(tex, ibo)| {
-                let uniforms = uniform! {
-                    proj: persp,
-                    view: view,
-                    origin: origin,
-                    tex: tex,
-                };
-                target
-                    .draw(&vbo, ibo, &program, &uniforms, &draw_params)
-                    .unwrap();
-            });
-            target.finish().unwrap();
+                textured_ibos.iter().for_each(|(tex, ibo)| {
+                    let uniforms = uniform! {
+                        proj: persp,
+                        view: view,
+                        origin: origin,
+                        tex: tex,
+                    };
+                    target
+                        .draw(&vbo, ibo, &program, &uniforms, &draw_params)
+                        .unwrap();
+                });
+                target.finish().unwrap();
+            }
+            glutin::event::Event::MainEventsCleared => {
+                window.request_redraw();
+            }
+            _ => {
+                let next_frame_time =
+                    std::time::Instant::now() + std::time::Duration::from_nanos(16_666_667);
+                *control_flow = glutin::event_loop::ControlFlow::WaitUntil(next_frame_time);
+            }
         }
     });
 }
@@ -180,7 +180,6 @@ fn start_window_loop(map: &IndexedMap, mip_level: usize) {
 fn process_window(
     window: &glutin::window::Window,
     wevent: &glutin::event::WindowEvent,
-    mouse_pos: &mut glutin::dpi::PhysicalPosition<f64>,
     camera: &mut Camera,
 ) -> glutin::event_loop::ControlFlow {
     match wevent {
@@ -188,10 +187,10 @@ fn process_window(
             let mut exit = false;
             if let Some(virt_keycode) = input.virtual_keycode {
                 match virt_keycode {
-                    glutin::event::VirtualKeyCode::W => camera.move_forward(0.1),
-                    glutin::event::VirtualKeyCode::S => camera.move_back(0.1),
-                    glutin::event::VirtualKeyCode::A => camera.move_left(0.1),
-                    glutin::event::VirtualKeyCode::D => camera.move_right(0.1),
+                    glutin::event::VirtualKeyCode::W => camera.move_forward(0.05),
+                    glutin::event::VirtualKeyCode::S => camera.move_back(0.05),
+                    glutin::event::VirtualKeyCode::A => camera.move_left(0.05),
+                    glutin::event::VirtualKeyCode::D => camera.move_right(0.05),
                     glutin::event::VirtualKeyCode::Q => exit = true,
                     _ => (),
                 }
@@ -206,6 +205,7 @@ fn process_window(
             position: glutin::dpi::PhysicalPosition { x, y },
             ..
         } => {
+            let mouse_pos = get_window_center(window);
             let (dx, dy) = (x - mouse_pos.x, y - mouse_pos.y);
             window
                 .set_cursor_position(get_window_center(window))

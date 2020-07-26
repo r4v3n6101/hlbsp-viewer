@@ -8,7 +8,7 @@ Build (`cargo build --release`) and run with `--help` or `-h` to get help info.
 - [x] **map convertation**: Works fine.
 - [x] **texturing**: Works fine.
 - [ ] **bsp lighting**: Currently unimplemented.
-- [x] **6 degree camera**: Works find, but not always stable.
+- [x] **6 degree camera**: Works fine.
 
 ## Screenshots
 ![gasworks screenshot](screenshots/readme1.png)
