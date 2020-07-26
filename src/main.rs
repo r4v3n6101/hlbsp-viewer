@@ -54,6 +54,23 @@ fn substitute_wad_textures<'a>(map: &mut IndexedMap<'a>, archives: &'a [wad::Arc
     archives.iter().for_each(|a| map.replace_empty_textures(a));
 }
 
+fn get_window_center(window: &glutin::window::Window) -> glutin::dpi::PhysicalPosition<f64> {
+    let out_pos = window.outer_position().unwrap();
+    let out_size = window.outer_size();
+    glutin::dpi::PhysicalPosition {
+        x: (out_pos.x + out_size.width as i32 / 2) as f64,
+        y: (out_pos.y + out_size.height as i32 / 2) as f64,
+    }
+}
+
+fn grab_cursor(window: &glutin::window::Window) {
+    window.set_cursor_visible(false);
+    window.set_cursor_grab(true).unwrap();
+    window
+        .set_cursor_position(get_window_center(window))
+        .unwrap();
+}
+
 fn start_window_loop(map: &IndexedMap, mip_level: usize) {
     let event_loop = glutin::event_loop::EventLoop::new();
     let wb = glutin::window::WindowBuilder::new()
@@ -63,6 +80,8 @@ fn start_window_loop(map: &IndexedMap, mip_level: usize) {
 
     let mut camera = Camera::new();
     let display = glium::Display::new(wb, cb, &event_loop).unwrap();
+    grab_cursor(display.gl_window().window());
+    let mut mouse_pos = get_window_center(display.gl_window().window());
 
     let root_model = map.root_model();
     let vertices: Vec<GlVertex> = map
@@ -126,7 +145,12 @@ fn start_window_loop(map: &IndexedMap, mip_level: usize) {
             event: wevent,
         } = event
         {
-            *control_flow = process_window(&wevent, &mut camera)
+            *control_flow = process_window(
+                display.gl_window().window(),
+                &wevent,
+                &mut mouse_pos,
+                &mut camera,
+            )
         } else {
             let next_frame_time =
                 std::time::Instant::now() + std::time::Duration::from_nanos(16_666_667);
@@ -154,7 +178,9 @@ fn start_window_loop(map: &IndexedMap, mip_level: usize) {
 }
 
 fn process_window(
+    window: &glutin::window::Window,
     wevent: &glutin::event::WindowEvent,
+    mouse_pos: &mut glutin::dpi::PhysicalPosition<f64>,
     camera: &mut Camera,
 ) -> glutin::event_loop::ControlFlow {
     match wevent {
@@ -162,16 +188,10 @@ fn process_window(
             let mut exit = false;
             if let Some(virt_keycode) = input.virtual_keycode {
                 match virt_keycode {
-                    glutin::event::VirtualKeyCode::W => camera.move_forward(0.01),
-                    glutin::event::VirtualKeyCode::S => camera.move_back(0.01),
-                    glutin::event::VirtualKeyCode::A => camera.move_left(0.01),
-                    glutin::event::VirtualKeyCode::D => camera.move_right(0.01),
-
-                    glutin::event::VirtualKeyCode::Up => camera.rotate_by(1.0, 0.0, 0.0),
-                    glutin::event::VirtualKeyCode::Down => camera.rotate_by(-1.0, 0.0, 0.0),
-                    glutin::event::VirtualKeyCode::Left => camera.rotate_by(0.0, -1.0, 0.0), // TODO : move to mouse control
-                    glutin::event::VirtualKeyCode::Right => camera.rotate_by(0.0, 1.0, 0.0),
-
+                    glutin::event::VirtualKeyCode::W => camera.move_forward(0.1),
+                    glutin::event::VirtualKeyCode::S => camera.move_back(0.1),
+                    glutin::event::VirtualKeyCode::A => camera.move_left(0.1),
+                    glutin::event::VirtualKeyCode::D => camera.move_right(0.1),
                     glutin::event::VirtualKeyCode::Q => exit = true,
                     _ => (),
                 }
@@ -181,6 +201,17 @@ fn process_window(
             } else {
                 glutin::event_loop::ControlFlow::Poll
             }
+        }
+        glutin::event::WindowEvent::CursorMoved {
+            position: glutin::dpi::PhysicalPosition { x, y },
+            ..
+        } => {
+            let (dx, dy) = (x - mouse_pos.x, y - mouse_pos.y);
+            window
+                .set_cursor_position(get_window_center(window))
+                .unwrap();
+            camera.rotate_by((-dy * 0.1) as f32, (dx * 0.1) as f32, 0.0);
+            glutin::event_loop::ControlFlow::Poll
         }
         glutin::event::WindowEvent::Resized(glutin::dpi::PhysicalSize { width, height }) => {
             camera.aspect_ratio = (*width as f32) / (*height as f32);
