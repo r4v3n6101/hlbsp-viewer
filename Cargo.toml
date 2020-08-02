@@ -12,3 +12,6 @@ map_impl = { path = "map_impl" }
 bsp = { path = "bsp" }
 wad = { path = "wad" }
 itertools = "*"
+
+[workspace]
+members = ["bsp", "wad", "map_impl"]
