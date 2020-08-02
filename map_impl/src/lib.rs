@@ -7,6 +7,7 @@ use miptex::MipTexture;
 use std::iter::{once, Iterator};
 use wad::Archive;
 
+pub mod entities;
 mod lumps;
 pub mod miptex;
 

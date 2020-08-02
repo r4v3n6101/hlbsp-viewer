@@ -18,5 +18,14 @@ fn print_vertices_indices_and_triangulated() {
     println!("Vertices: {}", vertices.len());
     println!("Faces: {}", indices.len());
     println!("Indices (triangulated): {}", triangulated_indices.len());
-    println!("Entities: {}", map.entities());
+}
+
+#[test]
+fn print_entities() {
+    let file = std::fs::read(env!("BSP_TEST")).unwrap();
+    let map = RawMap::parse(&file).unwrap();
+    let map = IndexedMap::new(&map);
+
+    let entities = map_impl::entities::Entities::parse(map.entities()).unwrap();
+    println!("{:?}", entities);
 }
