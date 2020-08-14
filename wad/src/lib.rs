@@ -84,11 +84,11 @@ impl<'a> Archive<'a> {
         Ok(Self { entries })
     }
 
-    pub fn entries(&self) -> impl Iterator<Item = (&&str, &Entry)> {
-        self.entries.iter()
+    pub fn entries(&self) -> impl Iterator<Item = (&str, &Entry)> {
+        self.entries.iter().map(|(&name, entry)| (name, entry))
     }
 
-    pub fn get_by_name(&self, name: &str) -> Option<&Entry> {
-        self.entries.get(name)
+    pub fn get_by_name<S: AsRef<str>>(&self, name: S) -> Option<&Entry> {
+        self.entries.get(name.as_ref())
     }
 }
