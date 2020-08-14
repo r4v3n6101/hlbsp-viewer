@@ -9,6 +9,8 @@ use structopt::StructOpt;
 use support::{init_logger, Camera};
 
 const MOVE_SPEED: f32 = 0.01;
+// Safe, because there's no multiple thread accessing this
+static mut MOUSE_GRABBED: bool = true;
 
 #[derive(Debug, StructOpt)]
 #[structopt(
@@ -50,6 +52,11 @@ fn grab_cursor(window: &glutin::window::Window) {
     window
         .set_cursor_position(get_window_center(window))
         .unwrap();
+}
+
+fn ungrab_cursor(window: &glutin::window::Window) {
+    window.set_cursor_visible(true);
+    window.set_cursor_grab(false).unwrap();
 }
 
 fn start_window_loop(map: &RawMap, wad_path: &[PathBuf]) {
@@ -133,33 +140,45 @@ fn process_window(
 ) -> glutin::event_loop::ControlFlow {
     match wevent {
         glutin::event::WindowEvent::KeyboardInput { input, .. } => {
-            let mut exit = false;
-            if let Some(virt_keycode) = input.virtual_keycode {
-                match virt_keycode {
-                    glutin::event::VirtualKeyCode::W => camera.move_forward(MOVE_SPEED),
-                    glutin::event::VirtualKeyCode::S => camera.move_back(MOVE_SPEED),
-                    glutin::event::VirtualKeyCode::A => camera.move_left(MOVE_SPEED),
-                    glutin::event::VirtualKeyCode::D => camera.move_right(MOVE_SPEED),
-                    glutin::event::VirtualKeyCode::Q => exit = true,
-                    _ => (),
+            if input.state == glutin::event::ElementState::Pressed {
+                if let Some(virt_keycode) = input.virtual_keycode {
+                    match virt_keycode {
+                        glutin::event::VirtualKeyCode::W => camera.move_forward(MOVE_SPEED),
+                        glutin::event::VirtualKeyCode::S => camera.move_back(MOVE_SPEED),
+                        glutin::event::VirtualKeyCode::A => camera.move_left(MOVE_SPEED),
+                        glutin::event::VirtualKeyCode::D => camera.move_right(MOVE_SPEED),
+                        glutin::event::VirtualKeyCode::G => unsafe {
+                            if MOUSE_GRABBED {
+                                ungrab_cursor(window);
+                                MOUSE_GRABBED = false;
+                            } else {
+                                grab_cursor(window);
+                                MOUSE_GRABBED = true;
+                            }
+                        },
+                        glutin::event::VirtualKeyCode::Q => {
+                            return glutin::event_loop::ControlFlow::Exit
+                        }
+                        _ => (),
+                    }
                 }
             }
-            if exit {
-                glutin::event_loop::ControlFlow::Exit
-            } else {
-                glutin::event_loop::ControlFlow::Poll
-            }
+            glutin::event_loop::ControlFlow::Poll
         }
         glutin::event::WindowEvent::CursorMoved {
             position: glutin::dpi::PhysicalPosition { x, y },
             ..
         } => {
-            let mouse_pos = get_window_center(window);
-            let (dx, dy) = (x - mouse_pos.x, y - mouse_pos.y);
-            window
-                .set_cursor_position(get_window_center(window))
-                .unwrap();
-            camera.rotate_by((-dy * 0.1) as f32, (dx * 0.1) as f32, 0.0);
+            unsafe {
+                if MOUSE_GRABBED {
+                    let mouse_pos = get_window_center(window);
+                    let (dx, dy) = (x - mouse_pos.x, y - mouse_pos.y);
+                    window
+                        .set_cursor_position(get_window_center(window))
+                        .unwrap();
+                    camera.rotate_by((-dy * 0.1) as f32, (dx * 0.1) as f32, 0.0);
+                }
+            }
             glutin::event_loop::ControlFlow::Poll
         }
         glutin::event::WindowEvent::Resized(glutin::dpi::PhysicalSize { width, height }) => {
