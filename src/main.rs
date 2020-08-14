@@ -1,11 +1,14 @@
-mod support;
+pub mod map;
+pub mod support;
 
+use bsp::RawMap;
 use glium::{glutin, program, uniform, Surface};
-use itertools::Itertools;
-use map_impl::IndexedMap;
+use map::MapRender;
 use std::path::PathBuf;
 use structopt::StructOpt;
-use support::{Camera, GlVertex};
+use support::{init_logger, Camera};
+
+const MOVE_SPEED: f32 = 0.01;
 
 #[derive(Debug, StructOpt)]
 #[structopt(
@@ -22,44 +25,22 @@ struct Opt {
         help = "Paths of wad files which are required to load textures"
     )]
     wad_path: Vec<PathBuf>,
-    #[structopt(
-        short,
-        long = "mip",
-        default_value = "0",
-        help = "Mip level of textures to load"
-    )]
-    mip_level: usize,
 }
 
 fn main() {
+    init_logger().unwrap();
     let opt = Opt::from_args();
     let file = std::fs::read(&opt.bsp_path).unwrap();
-    let bsp_map = bsp::RawMap::parse(&file).unwrap();
-    let mut map = IndexedMap::new(&bsp_map);
-    let wad_files: Vec<_> = opt
-        .wad_path
-        .iter()
-        .map(|path| std::fs::read(path).unwrap())
-        .collect();
-    let archives: Vec<_> = wad_files
-        .iter()
-        .map(|file| wad::Archive::parse(&file).unwrap())
-        .collect();
-    substitute_wad_textures(&mut map, &archives);
-
-    start_window_loop(&map, opt.mip_level);
-}
-
-fn substitute_wad_textures<'a>(map: &mut IndexedMap<'a>, archives: &'a [wad::Archive<'a>]) {
-    archives.iter().for_each(|a| map.replace_empty_textures(a));
+    let map = RawMap::parse(&file).unwrap();
+    start_window_loop(&map, &opt.wad_path);
 }
 
 fn get_window_center(window: &glutin::window::Window) -> glutin::dpi::PhysicalPosition<f64> {
     let out_pos = window.outer_position().unwrap();
     let out_size = window.outer_size();
     glutin::dpi::PhysicalPosition {
-        x: (out_pos.x + out_size.width as i32 / 2) as f64,
-        y: (out_pos.y + out_size.height as i32 / 2) as f64,
+        x: f64::from(out_pos.x + out_size.width as i32 / 2),
+        y: f64::from(out_pos.y + out_size.height as i32 / 2),
     }
 }
 
@@ -71,7 +52,7 @@ fn grab_cursor(window: &glutin::window::Window) {
         .unwrap();
 }
 
-fn start_window_loop(map: &IndexedMap, mip_level: usize) {
+fn start_window_loop(map: &RawMap, wad_path: &[PathBuf]) {
     let event_loop = glutin::event_loop::EventLoop::new();
     let wb = glutin::window::WindowBuilder::new()
         .with_title("hlbsp viewer")
@@ -82,46 +63,6 @@ fn start_window_loop(map: &IndexedMap, mip_level: usize) {
     let display = glium::Display::new(wb, cb, &event_loop).unwrap();
     grab_cursor(display.gl_window().window());
 
-    let root_model = map.root_model();
-    let vertices: Vec<GlVertex> = map
-        .calculate_vertices(root_model)
-        .into_iter()
-        .map(GlVertex::from)
-        .collect();
-    let mut indices_triangulated = map.indices_triangulated(root_model);
-    // TODO : temporal until a new group by
-    indices_triangulated.sort_by(|(a, _), (b, _)| a.name().partial_cmp(b.name()).unwrap());
-    let textured_ibos: Vec<_> = indices_triangulated
-        .into_iter()
-        .filter(|&(tex, _)| tex.name() != "sky" && tex.name() != "aaatrigger")
-        .group_by(|&(tex, _)| tex)
-        .into_iter()
-        .inspect(|(tex, _)| println!("Texture: {}", tex.name()))
-        .map(|(tex, group)| {
-            let dims = (
-                tex.width(mip_level).unwrap(),
-                tex.height(mip_level).unwrap(),
-            );
-            let image =
-                glium::texture::RawImage2d::from_raw_rgb(tex.pixels(mip_level).unwrap(), dims);
-            let texture = glium::texture::Texture2d::new(&display, image).unwrap();
-
-            let indices: Vec<_> = group
-                .flat_map(|(_, indices)| indices.into_iter().rev().map(|x| x as u16))
-                .collect();
-            let ibo = glium::index::IndexBuffer::new(
-                &display,
-                glium::index::PrimitiveType::TrianglesList,
-                &indices,
-            )
-            .unwrap();
-            (texture, ibo)
-        })
-        .collect();
-
-    let origin = root_model.origin;
-    let origin = [origin.0, origin.1, origin.2];
-    let vbo = glium::vertex::VertexBuffer::new(&display, &vertices).unwrap();
     let program = program!(&display,
          140 => {
              vertex: include_str!("../shaders/vert.glsl"),
@@ -137,6 +78,16 @@ fn start_window_loop(map: &IndexedMap, mip_level: usize) {
         },
         ..glium::DrawParameters::default()
     };
+    let mut map_render = MapRender::new(map, &display);
+    // TODO : don't load all wads once
+    let wad_files: Vec<_> = wad_path
+        .iter()
+        .map(|path| std::fs::read(path).unwrap())
+        .collect();
+    wad_files
+        .iter()
+        .map(|file| wad::Archive::parse(&file).unwrap())
+        .for_each(|archive| map_render.load_from_archive(&display, &archive));
 
     event_loop.run(move |event, _, control_flow| {
         let gl_window = display.gl_window();
@@ -146,27 +97,25 @@ fn start_window_loop(map: &IndexedMap, mip_level: usize) {
                 window_id: _,
                 event: wevent,
             } => *control_flow = process_window(window, &wevent, &mut camera),
+            glutin::event::Event::MainEventsCleared => window.request_redraw(),
             glutin::event::Event::RedrawRequested(_) => {
                 let mut target = display.draw();
                 target.clear_color_and_depth((1.0, 1.0, 0.0, 1.0), 1.0);
                 let persp: [[_; 4]; 4] = camera.perspective().into();
                 let view: [[_; 4]; 4] = camera.view().into();
 
-                textured_ibos.iter().for_each(|(tex, ibo)| {
+                map_render.textured_ibos().for_each(|(tex, ibo)| {
                     let uniforms = uniform! {
                         proj: persp,
                         view: view,
-                        origin: origin,
+                        // TODO : origin: map_render.origin(),
                         tex: tex,
                     };
                     target
-                        .draw(&vbo, ibo, &program, &uniforms, &draw_params)
+                        .draw(map_render.vbo(), ibo, &program, &uniforms, &draw_params)
                         .unwrap();
                 });
                 target.finish().unwrap();
-            }
-            glutin::event::Event::MainEventsCleared => {
-                window.request_redraw();
             }
             _ => {
                 let next_frame_time =
@@ -187,10 +136,10 @@ fn process_window(
             let mut exit = false;
             if let Some(virt_keycode) = input.virtual_keycode {
                 match virt_keycode {
-                    glutin::event::VirtualKeyCode::W => camera.move_forward(0.05),
-                    glutin::event::VirtualKeyCode::S => camera.move_back(0.05),
-                    glutin::event::VirtualKeyCode::A => camera.move_left(0.05),
-                    glutin::event::VirtualKeyCode::D => camera.move_right(0.05),
+                    glutin::event::VirtualKeyCode::W => camera.move_forward(MOVE_SPEED),
+                    glutin::event::VirtualKeyCode::S => camera.move_back(MOVE_SPEED),
+                    glutin::event::VirtualKeyCode::A => camera.move_left(MOVE_SPEED),
+                    glutin::event::VirtualKeyCode::D => camera.move_right(MOVE_SPEED),
                     glutin::event::VirtualKeyCode::Q => exit = true,
                     _ => (),
                 }

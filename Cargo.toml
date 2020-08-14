@@ -8,10 +8,11 @@ edition = "2018"
 structopt = "*"
 glium = "*"
 cgmath = "*"
-map_impl = { path = "map_impl" }
 bsp = { path = "bsp" }
 wad = { path = "wad" }
 itertools = "*"
+nom = "*"
+log = { version = "*", features = ["std", "max_level_debug", "release_max_level_info"] }
 
 [workspace]
-members = ["bsp", "wad", "map_impl"]
+members = ["bsp", "wad"]

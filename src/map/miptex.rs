@@ -6,8 +6,8 @@ use nom::{
     sequence::tuple,
 };
 
+pub const MIP_NUM: usize = 4;
 const NAME_LEN: usize = 16;
-const MIP_NUM: usize = 4;
 const COLOR_TABLE_SIZE: usize = 256 * 3;
 
 type Input<'a> = &'a [u8];
@@ -88,28 +88,12 @@ impl<'a> MipTexture<'a> {
         self.name
     }
 
-    pub const fn full_width(&self) -> u32 {
+    pub const fn main_width(&self) -> u32 {
         self.width
     }
 
-    pub const fn full_height(&self) -> u32 {
+    pub const fn main_height(&self) -> u32 {
         self.height
-    }
-
-    pub fn width(&self, mip_level: usize) -> Option<u32> {
-        if mip_level < MIP_NUM {
-            Some(self.width / (1 << mip_level))
-        } else {
-            None
-        }
-    }
-
-    pub fn height(&self, mip_level: usize) -> Option<u32> {
-        if mip_level < MIP_NUM {
-            Some(self.height / (1 << mip_level))
-        } else {
-            None
-        }
     }
 
     pub fn is_empty(&self) -> bool {

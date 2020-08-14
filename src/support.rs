@@ -1,5 +1,4 @@
 use cgmath::{perspective, vec3, Angle, Deg, Euler, InnerSpace, Matrix4, Point3, Rad, Vector3};
-use glium::implement_vertex;
 
 pub type Scal = f32;
 
@@ -36,7 +35,7 @@ impl Camera {
         self.rotation.z += Deg(roll);
     }
 
-    pub const fn up(&self) -> Vector3<Scal> {
+    pub const fn up() -> Vector3<Scal> {
         vec3(0.0, 1.0, 0.0)
     }
 
@@ -50,7 +49,7 @@ impl Camera {
     }
 
     pub fn right(&self) -> Vector3<Scal> {
-        self.forward().cross(self.up()).normalize()
+        self.forward().cross(Self::up()).normalize()
     }
 
     pub fn move_forward(&mut self, speed: Scal) {
@@ -74,30 +73,28 @@ impl Camera {
     }
 
     pub fn view(&self) -> Matrix4<Scal> {
-        Matrix4::look_at(self.position, self.position + self.forward(), self.up())
+        Matrix4::look_at(self.position, self.position + self.forward(), Self::up())
     }
 }
 
-use map_impl::Vertex;
-#[derive(Copy, Clone)]
-pub struct GlVertex {
-    pub position: [f32; 3],
-    pub tex_coords: [f32; 2],
-    pub normal: [f32; 3],
-}
-impl From<Vertex> for GlVertex {
-    fn from(
-        Vertex {
-            position,
-            tex_coords,
-            normal,
-        }: Vertex,
-    ) -> Self {
-        Self {
-            position,
-            tex_coords,
-            normal,
+use log::{LevelFilter, Metadata, Record, SetLoggerError};
+
+struct SimpleLogger;
+
+impl log::Log for SimpleLogger {
+    fn enabled(&self, _: &Metadata) -> bool {
+        true
+    }
+
+    fn log(&self, record: &Record) {
+        if self.enabled(record.metadata()) {
+            println!("[{}]: {}", record.level(), record.args());
         }
     }
+
+    fn flush(&self) {}
 }
-implement_vertex!(GlVertex, position, tex_coords, normal);
+
+pub fn init_logger() -> Result<(), SetLoggerError> {
+    log::set_boxed_logger(Box::new(SimpleLogger)).map(|()| log::set_max_level(LevelFilter::Debug))
+}

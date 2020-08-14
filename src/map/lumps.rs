@@ -1,4 +1,4 @@
-use crate::miptex::MipTexture;
+use super::miptex::MipTexture;
 use nom::{
     bytes::complete::take_until,
     combinator::{map, map_res},
