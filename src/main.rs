@@ -86,15 +86,13 @@ fn start_window_loop(map: &RawMap, wad_path: &[PathBuf]) {
         ..glium::DrawParameters::default()
     };
     let mut map_render = MapRender::new(map, &display);
-    // TODO : don't load all wads once
-    let wad_files: Vec<_> = wad_path
+    wad_path
         .iter()
         .map(|path| std::fs::read(path).unwrap())
-        .collect();
-    wad_files
-        .iter()
-        .map(|file| wad::Archive::parse(&file).unwrap())
-        .for_each(|archive| map_render.load_from_archive(&display, &archive));
+        .for_each(|file| {
+            let archive = wad::Archive::parse(&file).unwrap();
+            map_render.load_from_archive(&display, &archive)
+        });
 
     event_loop.run(move |event, _, control_flow| {
         let gl_window = display.gl_window();

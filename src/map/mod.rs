@@ -1,9 +1,8 @@
-mod entities;
 mod lumps;
 mod miptex;
 
 use bsp::{LumpType, RawMap};
-use entities::Entities;
+use elapsed::measure_time;
 use glium::{
     backend::Facade,
     implement_vertex,
@@ -34,7 +33,6 @@ pub struct MapRender {
     vbo: VertexBuffer<GlVertex>,
     textured_ibos: HashMap<String, IndexBuffer<u16>>, // lowercase
     textures: HashMap<String, Texture2d>,             // lowercase
-    required_wads: Option<Vec<String>>,
 }
 
 #[inline]
@@ -60,118 +58,102 @@ fn triangulate(vertices: Vec<usize>) -> Vec<usize> {
 
 impl MapRender {
     pub fn new<F: ?Sized + Facade>(map: &RawMap, facade: &F) -> Self {
-        let entities = parse_entities_str(map.lump_data(LumpType::Entities)).unwrap(); // TODO : remove unwraps
-        let vertices = parse_vertices(map.lump_data(LumpType::Vertices)).unwrap();
-        let edges = parse_edges(map.lump_data(LumpType::Edges)).unwrap();
-        let surfedges = parse_surfedges(map.lump_data(LumpType::Surfegdes)).unwrap();
-        let normals = parse_normals_from_planes(map.lump_data(LumpType::Planes)).unwrap();
-        let faces = parse_faces(map.lump_data(LumpType::Faces)).unwrap();
-        let texinfos = parse_texinfos(map.lump_data(LumpType::TexInfo)).unwrap();
-        let textures = parse_textures(map.lump_data(LumpType::Textures)).unwrap();
-        let models = parse_models(map.lump_data(LumpType::Models)).unwrap();
+        let (elapsed, out) = measure_time(|| {
+            let vertices = parse_vertices(map.lump_data(LumpType::Vertices)).unwrap();
+            let edges = parse_edges(map.lump_data(LumpType::Edges)).unwrap();
+            let surfedges = parse_surfedges(map.lump_data(LumpType::Surfegdes)).unwrap();
+            let normals = parse_normals_from_planes(map.lump_data(LumpType::Planes)).unwrap();
+            let faces = parse_faces(map.lump_data(LumpType::Faces)).unwrap();
+            let texinfos = parse_texinfos(map.lump_data(LumpType::TexInfo)).unwrap();
+            let textures = parse_textures(map.lump_data(LumpType::Textures)).unwrap();
+            let models = parse_models(map.lump_data(LumpType::Models)).unwrap();
 
-        let root_model = &models[0];
+            let root_model = &models[0];
 
-        let vbo_size = faces
-            .iter()
-            .skip(root_model.face_id)
-            .take(root_model.face_num)
-            .map(|f| f.surfedge_num)
-            .sum();
-        let mut vbo_vertices = Vec::with_capacity(vbo_size);
-        let mut loaded_textures = HashMap::new();
+            let vbo_size = faces
+                .iter()
+                .skip(root_model.face_id)
+                .take(root_model.face_num)
+                .map(|f| f.surfedge_num)
+                .sum();
+            let mut vbo_vertices = Vec::with_capacity(vbo_size);
+            let mut loaded_textures = HashMap::new();
 
-        let textured_ibos: HashMap<_, _> = faces
-            .iter()
-            .skip(root_model.face_id)
-            .take(root_model.face_num)
-            .map(|f| {
-                let n = &normals[f.plane_id];
-                let normal = if f.side {
-                    [n.0, n.1, n.2]
-                } else {
-                    [-n.0, -n.1, -n.2]
-                };
+            let textured_ibos: HashMap<_, _> = faces
+                .iter()
+                .skip(root_model.face_id)
+                .take(root_model.face_num)
+                .map(|f| {
+                    let n = &normals[f.plane_id];
+                    let normal = if f.side {
+                        [n.0, n.1, n.2]
+                    } else {
+                        [-n.0, -n.1, -n.2]
+                    };
 
-                let texinfo = &texinfos[f.texinfo_id];
-                let texture = &textures[texinfo.texture_id];
+                    let texinfo = &texinfos[f.texinfo_id];
+                    let texture = &textures[texinfo.texture_id];
 
-                let tex_name = texture.name().to_string();
+                    let tex_name = texture.name().to_string();
 
-                if !texture.is_empty() && !loaded_textures.contains_key(&tex_name) {
-                    loaded_textures.insert(tex_name.clone(), Self::upload_miptex(facade, texture));
-                    debug!("Load intern miptex: {}", &tex_name);
-                }
+                    if !texture.is_empty() && !loaded_textures.contains_key(&tex_name) {
+                        loaded_textures
+                            .insert(tex_name.clone(), Self::upload_miptex(facade, texture));
+                        debug!("Load intern miptex: {}", &tex_name);
+                    }
 
-                let begin = vbo_vertices.len();
-                let v = surfedges
-                    .iter()
-                    .skip(f.surfedge_id)
-                    .take(f.surfedge_num)
-                    .map(|&s| {
-                        let i = if s < 0 {
-                            edges[-s as usize].1
-                        } else {
-                            edges[s as usize].0
-                        };
-                        &vertices[i]
-                    })
-                    .map(move |v| GlVertex {
-                        position: [v.0, v.1, v.2],
-                        tex_coords: calculate_uvs(&v, texinfo, texture),
-                        normal,
-                    })
-                    .collect_vec();
-                vbo_vertices.extend(v);
-                let end = vbo_vertices.len();
-                let indices = triangulate((begin..end).collect_vec());
+                    let begin = vbo_vertices.len();
+                    let v = surfedges
+                        .iter()
+                        .skip(f.surfedge_id)
+                        .take(f.surfedge_num)
+                        .map(|&s| {
+                            let i = if s < 0 {
+                                edges[-s as usize].1
+                            } else {
+                                edges[s as usize].0
+                            };
+                            &vertices[i]
+                        })
+                        .map(move |v| GlVertex {
+                            position: [v.0, v.1, v.2],
+                            tex_coords: calculate_uvs(&v, texinfo, texture),
+                            normal,
+                        })
+                        .collect_vec();
+                    vbo_vertices.extend(v);
+                    let end = vbo_vertices.len();
+                    let indices = triangulate((begin..end).collect_vec());
 
-                (tex_name, indices)
-            })
-            .into_group_map()
-            .into_iter()
-            .map(|(k, v)| {
-                // TODO : replace indices to u16, do not convert them to usize
-                let indices = v.into_iter().flatten().map(|x| x as u16).collect_vec();
-                debug!("{} triangles using `{}` miptex", indices.len() / 3, &k);
-                (
-                    k,
-                    IndexBuffer::new(facade, PrimitiveType::TrianglesList, &indices).unwrap(),
-                )
-            })
-            .collect();
+                    (tex_name, indices)
+                })
+                .into_group_map()
+                .into_iter()
+                .map(|(k, v)| {
+                    // TODO : replace indices to u16, do not convert them to usize
+                    let indices = v.into_iter().flatten().map(|x| x as u16).collect_vec();
+                    debug!("{} triangles using `{}` miptex", indices.len() / 3, &k);
+                    (
+                        k,
+                        IndexBuffer::new(facade, PrimitiveType::TrianglesList, &indices).unwrap(),
+                    )
+                })
+                .collect();
 
-        info!("Textured render groups: {}", textured_ibos.len());
+            info!("Textured render groups: {}", textured_ibos.len());
 
-        let vbo = VertexBuffer::new(facade, &vbo_vertices).unwrap();
-        info!("Vertices: {}", vbo_vertices.len());
+            let vbo = VertexBuffer::new(facade, &vbo_vertices).unwrap();
+            info!("Vertices: {}", vbo_vertices.len());
 
-        let entities = Entities::parse(entities).unwrap();
-        let required_wads = entities.entities().iter().find_map(|e| {
-            e.properties().get("wad").map(|w| {
-                w.split(';')
-                    .map(std::string::ToString::to_string)
-                    .filter(|s| !s.is_empty())
-                    .collect_vec()
-            })
+            Self {
+                vbo,
+                textured_ibos,
+                textures: loaded_textures,
+            }
         });
 
-        if let Some(required_wads) = &required_wads {
-            info!("Found wads in entities: {:?}", required_wads);
-            // TODO : move loading from archive here
-        }
-
-        info!("Map loading done");
-        Self {
-            vbo,
-            textured_ibos,
-            textures: loaded_textures,
-            required_wads,
-        }
-    }
-
-    pub const fn required_wads(&self) -> &Option<Vec<String>> {
-        &self.required_wads
+        info!("Map loading done in {}", elapsed);
+        out
     }
 
     pub const fn vbo(&self) -> &VertexBuffer<GlVertex> {
