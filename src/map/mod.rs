@@ -70,6 +70,7 @@ impl MapRender {
 
             let root_model = &models[0];
 
+            let origin = root_model.origin;
             let vbo_size = faces
                 .iter()
                 .skip(root_model.face_id)
@@ -116,7 +117,7 @@ impl MapRender {
                             &vertices[i]
                         })
                         .map(move |v| GlVertex {
-                            position: [v.0, v.1, v.2],
+                            position: [v.0 + origin.0, v.1 + origin.1, v.2 + origin.2],
                             tex_coords: calculate_uvs(&v, texinfo, texture),
                             normal,
                         })

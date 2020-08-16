@@ -113,7 +113,6 @@ fn start_window_loop(map: &RawMap, wad_path: &[PathBuf]) {
                     let uniforms = uniform! {
                         proj: persp,
                         view: view,
-                        // TODO : origin: map_render.origin(),
                         tex: tex,
                     };
                     target
