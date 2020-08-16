@@ -1,0 +1,24 @@
+name: Tests & lints
+on: [push, pull_request]
+
+jobs:
+        clippy:
+                name: Clippy checks
+                runs-on: ubuntu-latest
+                steps:
+                        - name: Checkout sources
+                          uses: actions/checkout@v2
+
+                        - name: Install nightly toolchain and cargo-clippy
+                          uses: actions-rs/toolchain@v1
+                          with:
+                                  profile: minimal
+                                  toolchain: nightly
+                                  components: clippy
+                                  override: true
+
+                        - name: Run clippy
+                          uses: actions-rs/cargo@v1
+                          with:
+                                  command: clippy
+                                  args: --release --all-features
