@@ -44,11 +44,11 @@ pub fn parse_vertices(i: &[u8]) -> OnlyResult<Vec<Vec3>> {
     Ok(vertices)
 }
 
-fn parse_edge(i: &[u8]) -> ParseResult<(usize, usize)> {
-    tuple((map(le_u16, |x| x as usize), map(le_u16, |x| x as usize)))(i)
+fn parse_edge(i: &[u8]) -> ParseResult<(u16, u16)> {
+    tuple((le_u16, le_u16))(i)
 }
 
-pub fn parse_edges(i: &[u8]) -> OnlyResult<Vec<(usize, usize)>> {
+pub fn parse_edges(i: &[u8]) -> OnlyResult<Vec<(u16, u16)>> {
     let (_, edges) = many0(parse_edge)(i)?;
     Ok(edges)
 }

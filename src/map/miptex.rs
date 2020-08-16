@@ -28,12 +28,6 @@ pub struct MipTexture<'a> {
     color_table: Option<&'a [u8]>,
 }
 
-impl PartialEq for MipTexture<'_> {
-    fn eq(&self, other: &Self) -> bool {
-        self.name() == other.name()
-    }
-}
-
 impl<'a> MipTexture<'a> {
     pub fn parse(file: &'a [u8]) -> Result<MipTexture<'a>, nom::Err<ParseError<'a>>> {
         let (_, (name, width, height, offsets)) = tuple((

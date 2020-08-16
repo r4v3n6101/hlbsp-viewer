@@ -31,7 +31,7 @@ implement_vertex!(GlVertex, position, tex_coords, normal);
 
 pub struct MapRender {
     vbo: VertexBuffer<GlVertex>,
-    textured_ibos: HashMap<String, IndexBuffer<u16>>, // lowercase
+    textured_ibos: HashMap<String, IndexBuffer<u32>>, // lowercase
     textures: HashMap<String, Texture2d>,             // lowercase
 }
 
@@ -113,7 +113,7 @@ impl MapRender {
                                 edges[-s as usize].1
                             } else {
                                 edges[s as usize].0
-                            };
+                            } as usize;
                             &vertices[i]
                         })
                         .map(move |v| GlVertex {
@@ -131,8 +131,7 @@ impl MapRender {
                 .into_group_map()
                 .into_iter()
                 .map(|(k, v)| {
-                    // TODO : replace indices to u16, do not convert them to usize
-                    let indices = v.into_iter().flatten().map(|x| x as u16).collect_vec();
+                    let indices = v.into_iter().flatten().map(|x| x as u32).collect_vec();
                     debug!("{} triangles using `{}` miptex", indices.len() / 3, &k);
                     (
                         k,
@@ -161,7 +160,7 @@ impl MapRender {
         &self.vbo
     }
 
-    pub fn textured_ibos(&self) -> impl Iterator<Item = (&Texture2d, &IndexBuffer<u16>)> {
+    pub fn textured_ibos(&self) -> impl Iterator<Item = (&Texture2d, &IndexBuffer<u32>)> {
         self.textured_ibos
             .iter()
             .filter_map(move |(key, value)| Some((self.textures.get(key)?, value)))
