@@ -20,6 +20,8 @@ use std::{
 };
 use wad::Archive;
 
+const TRANSPARENT_TEXTURES: [&str; 2] = ["sky", "aaatrigger"];
+
 #[derive(Copy, Clone)]
 pub struct GlVertex {
     position: [f32; 3],
@@ -84,24 +86,30 @@ impl MapRender {
                 .iter()
                 .skip(root_model.face_id)
                 .take(root_model.face_num)
-                .map(|f| {
-                    let n = &normals[f.plane_id];
-                    let normal = if f.side {
-                        [n.0, n.1, n.2]
-                    } else {
-                        [-n.0, -n.1, -n.2]
-                    };
-
+                .filter_map(|f| {
                     let texinfo = &texinfos[f.texinfo_id];
                     let texture = &textures[texinfo.texture_id];
-
                     let tex_name = texture.name().to_string();
+
+                    if TRANSPARENT_TEXTURES
+                        .iter()
+                        .any(|x| tex_name.eq_ignore_ascii_case(x))
+                    {
+                        return None;
+                    }
 
                     if !texture.is_empty() && !loaded_textures.contains_key(&tex_name) {
                         loaded_textures
                             .insert(tex_name.clone(), Self::upload_miptex(facade, texture));
                         debug!("Load intern miptex: {}", &tex_name);
                     }
+
+                    let n = &normals[f.plane_id];
+                    let normal = if f.side {
+                        [n.0, n.1, n.2]
+                    } else {
+                        [-n.0, -n.1, -n.2]
+                    };
 
                     let begin = vbo_vertices.len();
                     let v = surfedges
@@ -126,7 +134,7 @@ impl MapRender {
                     let end = vbo_vertices.len();
                     let indices = triangulate((begin..end).collect_vec());
 
-                    (tex_name, indices)
+                    Some((tex_name, indices))
                 })
                 .into_group_map()
                 .into_iter()
