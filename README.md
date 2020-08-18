@@ -10,6 +10,7 @@ Build (`cargo build --release`) and run with `--help` or `-h` to get help info.
 - [x] **6 degree camera**: Works fine.
 - [ ] **bsp lighting**: Currently unimplemented.
 - [ ] **entities rendering**: Currently unimplemented.
+- [ ] **skybox rendering**: Currently unimplemented.
 
 ## Screenshots
 ![gasworks screenshot](screenshots/readme1.png)
