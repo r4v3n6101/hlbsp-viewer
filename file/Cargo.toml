@@ -1,8 +1,14 @@
 [package]
 name = "file"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["r4v3n6101 <raven6107@gmail.com>"]
 edition = "2018"
 
 [dependencies]
 nom = "*"
+arraylib = "*"
+
+[dependencies.image]
+version = "*"
+default-features = false
+features = ["tga"]
