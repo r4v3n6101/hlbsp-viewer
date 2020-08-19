@@ -2,7 +2,7 @@ use arraylib::ArrayMap;
 use std::path::Path;
 
 const EXTENSION: &str = "tga";
-const SIDES: [&str; 6] = ["rt", "lf", "up", "dn", "ft", "bk"];
+const SIDES: [&str; 6] = ["rt", "lf", "up", "dn", "bk", "ft"];
 
 pub struct Cubemap {
     dimension: u32,
