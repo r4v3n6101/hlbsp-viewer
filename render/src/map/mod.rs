@@ -10,9 +10,11 @@ use glium::{
     backend::Facade,
     implement_vertex,
     index::{IndexBuffer, IndexBufferAny, PrimitiveType},
+    program,
     texture::{MipmapsOption, RawImage2d},
+    uniform,
     vertex::{VertexBuffer, VertexBufferAny},
-    Rect, Texture2d,
+    DrawParameters, Program, Rect, Surface, Texture2d,
 };
 use itertools::Itertools;
 use log::{debug, info};
@@ -34,12 +36,6 @@ struct Vertex {
 
 implement_vertex!(Vertex, position, tex_coords, normal);
 
-pub struct MapRender {
-    vbo: VertexBufferAny,
-    textured_ibos: HashMap<String, IndexBufferAny>, // lowercase
-    textures: HashMap<String, Texture2d>,           // lowercase
-}
-
 #[inline]
 fn calculate_uvs(vertex: &Vec3, texinfo: &TexInfo, texture: &MipTexture) -> [f32; 2] {
     let dot_product = |a: &Vec3, b: &Vec3| a.0 * b.0 + a.1 * b.1 + a.2 * b.2;
@@ -59,6 +55,13 @@ fn triangulate(vertices: Vec<usize>) -> Vec<usize> {
             .flat_map(|i| std::iter::once(vertices[0]).chain(i.iter().copied()))
             .collect(),
     }
+}
+
+pub struct MapRender {
+    vbo: VertexBufferAny,
+    textured_ibos: HashMap<String, IndexBufferAny>, // lowercase
+    textures: HashMap<String, Texture2d>,           // lowercase
+    program: Program,
 }
 
 impl MapRender {
@@ -158,25 +161,24 @@ impl MapRender {
             let vbo = VertexBuffer::new(facade, &vbo_vertices).unwrap().into();
             info!("Vertices: {}", vbo_vertices.len());
 
+            let program = program!(facade,
+                140 => {
+                    vertex: include_str!("../../shaders/map/vert.glsl"),
+                    fragment: include_str!("../../shaders/map/frag.glsl"),
+                },
+            )
+            .unwrap();
+
             Self {
                 vbo,
                 textured_ibos,
                 textures: loaded_textures,
+                program,
             }
         });
 
         info!("Map loading done in {}", elapsed);
         out
-    }
-
-    pub const fn vbo(&self) -> &VertexBufferAny {
-        &self.vbo
-    }
-
-    pub fn textured_ibos(&self) -> impl Iterator<Item = (&Texture2d, &IndexBufferAny)> {
-        self.textured_ibos
-            .iter()
-            .filter_map(move |(key, value)| Some((self.textures.get(key)?, value)))
     }
 
     fn upload_miptex<F: ?Sized + Facade>(facade: &F, miptex: &MipTexture) -> Texture2d {
@@ -218,5 +220,23 @@ impl MapRender {
             Some((name, tex2d))
         });
         self.textures.extend(loaded);
+    }
+
+    pub fn render<S: Surface>(
+        &self,
+        surface: &mut S,
+        mvp: [[f32; 4]; 4],
+        draw_params: &DrawParameters,
+    ) {
+        self.textured_ibos.iter().for_each(|(tex, ibo)| {
+            let tex = self.textures.get(tex).unwrap();
+            let uniforms = uniform! {
+                mvp: mvp,
+                tex: tex,
+            };
+            surface
+                .draw(&self.vbo, ibo, &self.program, &uniforms, &draw_params)
+                .unwrap();
+        });
     }
 }

@@ -1,7 +1,7 @@
 mod support;
 
 use file::{bsp::RawMap, wad::Archive};
-use glium::{glutin, program, uniform, Surface};
+use glium::{glutin, Surface};
 use render::map::MapRender;
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -69,21 +69,6 @@ fn start_window_loop(map: &RawMap, wad_path: &[PathBuf]) {
     let display = glium::Display::new(wb, cb, &event_loop).unwrap();
     grab_cursor(display.gl_window().window());
 
-    let program = program!(&display,
-         140 => {
-             vertex: include_str!("../shaders/vert.glsl"),
-             fragment: include_str!("../shaders/frag.glsl"),
-         },
-    )
-    .unwrap();
-    let draw_params = glium::DrawParameters {
-        depth: glium::Depth {
-            test: glium::DepthTest::IfLess,
-            write: true,
-            ..glium::Depth::default()
-        },
-        ..glium::DrawParameters::default()
-    };
     let mut map_render = MapRender::new(map, &display);
     wad_path
         .iter()
@@ -92,6 +77,15 @@ fn start_window_loop(map: &RawMap, wad_path: &[PathBuf]) {
             let archive = Archive::parse(&file).unwrap();
             map_render.load_from_archive(&display, &archive)
         });
+
+    let draw_params = glium::DrawParameters {
+        depth: glium::Depth {
+            test: glium::DepthTest::IfLess,
+            write: true,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
 
     event_loop.run(move |event, _, control_flow| {
         let gl_window = display.gl_window();
@@ -104,20 +98,10 @@ fn start_window_loop(map: &RawMap, wad_path: &[PathBuf]) {
             glutin::event::Event::MainEventsCleared => window.request_redraw(),
             glutin::event::Event::RedrawRequested(_) => {
                 let mut target = display.draw();
-                target.clear_color_and_depth((1.0, 1.0, 0.0, 1.0), 1.0);
-                let persp: [[_; 4]; 4] = camera.perspective().into();
-                let view: [[_; 4]; 4] = camera.view().into();
+                let mvp = camera.perspective() * camera.view();
 
-                map_render.textured_ibos().for_each(|(tex, ibo)| {
-                    let uniforms = uniform! {
-                        proj: persp,
-                        view: view,
-                        tex: tex,
-                    };
-                    target
-                        .draw(map_render.vbo(), ibo, &program, &uniforms, &draw_params)
-                        .unwrap();
-                });
+                target.clear_color_and_depth((1.0, 1.0, 0.0, 1.0), 1.0);
+                map_render.render(&mut target, mvp.into(), &draw_params);
                 target.finish().unwrap();
             }
             _ => {
