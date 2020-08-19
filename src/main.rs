@@ -1,7 +1,9 @@
 mod support;
 
+use elapsed::measure_time;
 use file::{bsp::RawMap, wad::Archive};
 use glium::{glutin, Surface};
+use log::info;
 use render::map::MapRender;
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -69,14 +71,18 @@ fn start_window_loop(map: &RawMap, wad_path: &[PathBuf]) {
     let display = glium::Display::new(wb, cb, &event_loop).unwrap();
     grab_cursor(display.gl_window().window());
 
-    let mut map_render = MapRender::new(map, &display);
-    wad_path
-        .iter()
-        .map(|path| std::fs::read(path).unwrap())
-        .for_each(|file| {
-            let archive = Archive::parse(&file).unwrap();
-            map_render.load_from_archive(&display, &archive)
-        });
+    let (elapsed, map_render) = measure_time(|| {
+        let mut map_render = MapRender::new(map, &display);
+        wad_path
+            .iter()
+            .map(|path| std::fs::read(path).unwrap())
+            .for_each(|file| {
+                let archive = Archive::parse(&file).unwrap();
+                map_render.load_from_archive(&display, &archive)
+            });
+        map_render
+    });
+    info!("Map loaded in {}", elapsed);
 
     let draw_params = glium::DrawParameters {
         depth: glium::Depth {

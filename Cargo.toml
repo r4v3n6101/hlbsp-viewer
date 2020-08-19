@@ -1,6 +1,6 @@
 [package]
 name = "hlbsp"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["r4v3n6101 <raven6107@gmail.com>"]
 edition = "2018"
 
@@ -9,8 +9,9 @@ structopt = "*"
 glium = "*"
 file = { path = "file" }
 render = { path = "render" }
-log = { version = "*", features = ["std", "max_level_debug", "release_max_level_info"] }
 cgmath = "*"
+log = { version = "*", features = ["std", "max_level_debug", "release_max_level_info"] }
+elapsed = "*"
 
 [workspace]
 members = ["file", "render"]
