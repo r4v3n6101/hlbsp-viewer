@@ -56,14 +56,14 @@ fn triangulate(vertices: Vec<usize>) -> Vec<usize> {
     }
 }
 
-pub struct MapRender {
+pub struct Map {
     vbo: VertexBufferAny,
     textured_ibos: HashMap<String, IndexBufferAny>, // lowercase
     textures: HashMap<String, Texture2d>,           // lowercase
     program: Program,
 }
 
-impl MapRender {
+impl Map {
     pub fn new<F: ?Sized + Facade>(map: &RawMap, facade: &F) -> Self {
         let vertices = parse_vertices(map.lump_data(LumpType::Vertices)).unwrap();
         let edges = parse_edges(map.lump_data(LumpType::Edges)).unwrap();

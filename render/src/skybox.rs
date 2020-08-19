@@ -9,7 +9,7 @@ use glium::{
     uniform,
     uniforms::MagnifySamplerFilter,
     vertex::{VertexBuffer, VertexBufferAny},
-    BlitTarget, Depth, DepthTest, DrawParameters, Program, Surface,
+    BlitTarget, DrawParameters, Program, Surface,
 };
 
 #[derive(Copy, Clone)]
@@ -157,20 +157,16 @@ impl Skybox {
         }
     }
 
-    pub fn render<S: Surface>(&self, surface: &mut S, mvp: [[f32; 4]; 4]) {
+    pub fn render<S: Surface>(
+        &self,
+        surface: &mut S,
+        mvp: [[f32; 4]; 4],
+        draw_params: &DrawParameters,
+    ) {
         let uniforms = uniform! {
             mvp: mvp,
             cubetex: self.cubemap.sampled().magnify_filter(MagnifySamplerFilter::Linear),
         };
-        let draw_params = DrawParameters {
-            depth: Depth {
-                test: DepthTest::IfLess,
-                write: true,
-                ..Depth::default()
-            },
-            ..DrawParameters::default()
-        };
-
         surface
             .draw(&self.vbo, &self.ibo, &self.program, &uniforms, &draw_params)
             .unwrap();
