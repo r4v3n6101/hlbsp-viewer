@@ -1,7 +1,6 @@
 mod lumps;
 mod miptex;
 
-use elapsed::measure_time;
 use file::{
     bsp::{LumpType, RawMap},
     wad::Archive,
@@ -66,119 +65,113 @@ pub struct MapRender {
 
 impl MapRender {
     pub fn new<F: ?Sized + Facade>(map: &RawMap, facade: &F) -> Self {
-        let (elapsed, out) = measure_time(|| {
-            let vertices = parse_vertices(map.lump_data(LumpType::Vertices)).unwrap();
-            let edges = parse_edges(map.lump_data(LumpType::Edges)).unwrap();
-            let surfedges = parse_surfedges(map.lump_data(LumpType::Surfegdes)).unwrap();
-            let normals = parse_normals_from_planes(map.lump_data(LumpType::Planes)).unwrap();
-            let faces = parse_faces(map.lump_data(LumpType::Faces)).unwrap();
-            let texinfos = parse_texinfos(map.lump_data(LumpType::TexInfo)).unwrap();
-            let textures = parse_textures(map.lump_data(LumpType::Textures)).unwrap();
-            let models = parse_models(map.lump_data(LumpType::Models)).unwrap();
+        let vertices = parse_vertices(map.lump_data(LumpType::Vertices)).unwrap();
+        let edges = parse_edges(map.lump_data(LumpType::Edges)).unwrap();
+        let surfedges = parse_surfedges(map.lump_data(LumpType::Surfegdes)).unwrap();
+        let normals = parse_normals_from_planes(map.lump_data(LumpType::Planes)).unwrap();
+        let faces = parse_faces(map.lump_data(LumpType::Faces)).unwrap();
+        let texinfos = parse_texinfos(map.lump_data(LumpType::TexInfo)).unwrap();
+        let textures = parse_textures(map.lump_data(LumpType::Textures)).unwrap();
+        let models = parse_models(map.lump_data(LumpType::Models)).unwrap();
 
-            let root_model = &models[0];
+        let root_model = &models[0];
 
-            let origin = root_model.origin;
-            let vbo_size = faces
-                .iter()
-                .skip(root_model.face_id)
-                .take(root_model.face_num)
-                .map(|f| f.surfedge_num)
-                .sum();
-            let mut vbo_vertices = Vec::with_capacity(vbo_size);
-            let mut loaded_textures = HashMap::new();
+        let origin = root_model.origin;
+        let vbo_size = faces
+            .iter()
+            .skip(root_model.face_id)
+            .take(root_model.face_num)
+            .map(|f| f.surfedge_num)
+            .sum();
+        let mut vbo_vertices = Vec::with_capacity(vbo_size);
+        let mut loaded_textures = HashMap::new();
 
-            let textured_ibos: HashMap<_, _> = faces
-                .iter()
-                .skip(root_model.face_id)
-                .take(root_model.face_num)
-                .filter_map(|f| {
-                    let texinfo = &texinfos[f.texinfo_id];
-                    let texture = &textures[texinfo.texture_id];
-                    let tex_name = texture.name().to_string();
+        let textured_ibos: HashMap<_, _> = faces
+            .iter()
+            .skip(root_model.face_id)
+            .take(root_model.face_num)
+            .filter_map(|f| {
+                let texinfo = &texinfos[f.texinfo_id];
+                let texture = &textures[texinfo.texture_id];
+                let tex_name = texture.name().to_string();
 
-                    if TRANSPARENT_TEXTURES
-                        .iter()
-                        .any(|x| tex_name.eq_ignore_ascii_case(x))
-                    {
-                        return None;
-                    }
+                if TRANSPARENT_TEXTURES
+                    .iter()
+                    .any(|x| tex_name.eq_ignore_ascii_case(x))
+                {
+                    return None;
+                }
 
-                    if !texture.is_empty() && !loaded_textures.contains_key(&tex_name) {
-                        loaded_textures
-                            .insert(tex_name.clone(), Self::upload_miptex(facade, texture));
-                        debug!("Load intern miptex: {}", &tex_name);
-                    }
+                if !texture.is_empty() && !loaded_textures.contains_key(&tex_name) {
+                    loaded_textures.insert(tex_name.clone(), Self::upload_miptex(facade, texture));
+                    debug!("Load intern miptex: {}", &tex_name);
+                }
 
-                    let n = &normals[f.plane_id];
-                    let normal = if f.side {
-                        [n.0, n.1, n.2]
-                    } else {
-                        [-n.0, -n.1, -n.2]
-                    };
+                let n = &normals[f.plane_id];
+                let normal = if f.side {
+                    [n.0, n.1, n.2]
+                } else {
+                    [-n.0, -n.1, -n.2]
+                };
 
-                    let begin = vbo_vertices.len();
-                    let v = surfedges
-                        .iter()
-                        .skip(f.surfedge_id)
-                        .take(f.surfedge_num)
-                        .map(|&s| {
-                            let i = if s < 0 {
-                                edges[-s as usize].1
-                            } else {
-                                edges[s as usize].0
-                            } as usize;
-                            &vertices[i]
-                        })
-                        .map(move |v| Vertex {
-                            position: [v.0 + origin.0, v.1 + origin.1, v.2 + origin.2],
-                            tex_coords: calculate_uvs(&v, texinfo, texture),
-                            normal,
-                        })
-                        .collect_vec();
-                    vbo_vertices.extend(v);
-                    let end = vbo_vertices.len();
-                    let indices = triangulate((begin..end).collect_vec());
+                let begin = vbo_vertices.len();
+                let v = surfedges
+                    .iter()
+                    .skip(f.surfedge_id)
+                    .take(f.surfedge_num)
+                    .map(|&s| {
+                        let i = if s < 0 {
+                            edges[-s as usize].1
+                        } else {
+                            edges[s as usize].0
+                        } as usize;
+                        &vertices[i]
+                    })
+                    .map(move |v| Vertex {
+                        position: [v.0 + origin.0, v.1 + origin.1, v.2 + origin.2],
+                        tex_coords: calculate_uvs(&v, texinfo, texture),
+                        normal,
+                    })
+                    .collect_vec();
+                vbo_vertices.extend(v);
+                let end = vbo_vertices.len();
+                let indices = triangulate((begin..end).collect_vec());
 
-                    Some((tex_name, indices))
-                })
-                .into_group_map()
-                .into_iter()
-                .map(|(k, v)| {
-                    let indices = v.into_iter().flatten().map(|x| x as u32).collect_vec();
-                    debug!("{} triangles using `{}` miptex", indices.len() / 3, &k);
-                    (
-                        k,
-                        IndexBuffer::new(facade, PrimitiveType::TrianglesList, &indices)
-                            .unwrap()
-                            .into(),
-                    )
-                })
-                .collect();
+                Some((tex_name, indices))
+            })
+            .into_group_map()
+            .into_iter()
+            .map(|(k, v)| {
+                let indices = v.into_iter().flatten().map(|x| x as u32).collect_vec();
+                debug!("{} triangles using `{}` miptex", indices.len() / 3, &k);
+                (
+                    k,
+                    IndexBuffer::new(facade, PrimitiveType::TrianglesList, &indices)
+                        .unwrap()
+                        .into(),
+                )
+            })
+            .collect();
 
-            info!("Textured render groups: {}", textured_ibos.len());
+        info!("Textured render groups: {}", textured_ibos.len());
 
-            let vbo = VertexBuffer::new(facade, &vbo_vertices).unwrap().into();
-            info!("Vertices: {}", vbo_vertices.len());
+        let vbo = VertexBuffer::new(facade, &vbo_vertices).unwrap().into();
+        info!("Vertices: {}", vbo_vertices.len());
 
-            let program = program!(facade,
-                140 => {
-                    vertex: include_str!("../../shaders/map/vert.glsl"),
-                    fragment: include_str!("../../shaders/map/frag.glsl"),
-                },
-            )
-            .unwrap();
+        let program = program!(facade,
+            140 => {
+                vertex: include_str!("../../shaders/map/vert.glsl"),
+                fragment: include_str!("../../shaders/map/frag.glsl"),
+            },
+        )
+        .unwrap();
 
-            Self {
-                vbo,
-                textured_ibos,
-                textures: loaded_textures,
-                program,
-            }
-        });
-
-        info!("Map loading done in {}", elapsed);
-        out
+        Self {
+            vbo,
+            textured_ibos,
+            textures: loaded_textures,
+            program,
+        }
     }
 
     fn upload_miptex<F: ?Sized + Facade>(facade: &F, miptex: &MipTexture) -> Texture2d {

@@ -1,6 +1,6 @@
 [package]
 name = "render"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["r4v3n6101 <raven6107@gmail.com>"]
 edition = "2018"
 
@@ -9,5 +9,4 @@ file = { path = "../file/" }
 nom = "*"
 glium = "*"
 itertools = "*"
-elapsed = "*"
 log = "*"
