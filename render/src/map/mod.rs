@@ -1,8 +1,11 @@
 mod lumps;
 mod miptex;
 
-use bsp::{LumpType, RawMap};
 use elapsed::measure_time;
+use file::{
+    bsp::{LumpType, RawMap},
+    wad::Archive,
+};
 use glium::{
     backend::Facade,
     implement_vertex,
@@ -18,7 +21,6 @@ use std::{
     collections::{HashMap, HashSet},
     iter::Iterator,
 };
-use wad::Archive;
 
 const TRANSPARENT_TEXTURES: [&str; 2] = ["sky", "aaatrigger"];
 

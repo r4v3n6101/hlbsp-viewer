@@ -1,19 +1,16 @@
 [package]
 name = "hlbsp"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["r4v3n6101 <raven6107@gmail.com>"]
 edition = "2018"
 
 [dependencies]
 structopt = "*"
 glium = "*"
-cgmath = "*"
-bsp = { path = "bsp" }
-wad = { path = "wad" }
-itertools = "*"
-nom = "*"
+file = { path = "file" }
+render = { path = "render" }
 log = { version = "*", features = ["std", "max_level_debug", "release_max_level_info"] }
-elapsed = "*"
+cgmath = "*"
 
 [workspace]
-members = ["bsp", "wad"]
+members = ["file", "render"]

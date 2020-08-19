@@ -1,9 +1,8 @@
-pub mod map;
-pub mod support;
+mod support;
 
-use bsp::RawMap;
+use file::{bsp::RawMap, wad::Archive};
 use glium::{glutin, program, uniform, Surface};
-use map::MapRender;
+use render::map::MapRender;
 use std::path::PathBuf;
 use structopt::StructOpt;
 use support::{init_logger, Camera};
@@ -90,7 +89,7 @@ fn start_window_loop(map: &RawMap, wad_path: &[PathBuf]) {
         .iter()
         .map(|path| std::fs::read(path).unwrap())
         .for_each(|file| {
-            let archive = wad::Archive::parse(&file).unwrap();
+            let archive = Archive::parse(&file).unwrap();
             map_render.load_from_archive(&display, &archive)
         });
 

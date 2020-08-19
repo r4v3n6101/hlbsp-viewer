@@ -1,8 +1,13 @@
 [package]
-name = "wad"
+name = "render"
 version = "0.1.0"
 authors = ["r4v3n6101 <raven6107@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+file = { path = "../file/" }
 nom = "*"
+itertools = "*"
+glium = "*"
+elapsed = "*"
+log = "*"
