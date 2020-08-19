@@ -154,7 +154,10 @@ impl Skybox {
     }
 
     pub fn render<S: Surface>(&self, surface: &mut S, mvp: [[f32; 4]; 4]) {
-        let uniforms = uniform! {mvp: mvp};
+        let uniforms = uniform! {
+            mvp: mvp,
+            cubetex: self.cubemap.sampled().magnify_filter(MagnifySamplerFilter::Linear),
+        };
         let draw_params = DrawParameters {
             depth: Depth {
                 test: DepthTest::IfLess,
