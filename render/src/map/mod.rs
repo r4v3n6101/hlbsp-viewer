@@ -205,7 +205,7 @@ impl MapRender {
         let loaded = required.difference(&present).cloned().filter_map(|name| {
             let entry = archive
                 .get_by_name(name.to_ascii_uppercase())
-                .or(archive.get_by_name(name.to_ascii_lowercase()))?;
+                .or_else(|| archive.get_by_name(name.to_ascii_lowercase()))?;
             let miptex = MipTexture::parse(entry.data()).ok()?;
             let tex2d = Self::upload_miptex(facade, &miptex);
             debug!("Load extern miptex: {}", &name);

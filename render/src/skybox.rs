@@ -1,3 +1,4 @@
+use file::cubemap::Cubemap as CubemapFile;
 use glium::{
     backend::Facade,
     framebuffer::SimpleFrameBuffer,
@@ -115,7 +116,7 @@ pub struct Skybox {
 }
 
 impl Skybox {
-    pub fn new<F: ?Sized + Facade>(facade: &F, dimension: u32, textures: [Vec<u8>; 6]) -> Self {
+    pub fn new<F: ?Sized + Facade>(facade: &F, cubemap_file: &CubemapFile) -> Self {
         let vbo = VertexBuffer::new(facade, &CUBE_VERTICES).unwrap();
         let ibo = IndexBuffer::new(facade, PrimitiveType::TrianglesList, &CUBE_INDICES).unwrap();
         let program = program!(facade,
@@ -125,6 +126,9 @@ impl Skybox {
             }
         )
         .unwrap();
+
+        let dimension = cubemap_file.dimension();
+        let sides = cubemap_file.sides();
 
         let cubemap = Cubemap::empty(facade, dimension).unwrap();
         let blit_rect = BlitTarget {
@@ -136,7 +140,7 @@ impl Skybox {
 
         for side in &CUBEMAP_SIDES {
             let i = side.get_layer_index();
-            let image = RawImage2d::from_raw_rgba(textures[i].clone(), (dimension, dimension)); // TODO : clone
+            let image = RawImage2d::from_raw_rgba(sides[i].clone(), (dimension, dimension)); // TODO : clone
             let texture = Texture2d::new(facade, image).unwrap();
             let target = SimpleFrameBuffer::new(facade, cubemap.main_level().image(*side)).unwrap();
             texture.as_surface().blit_whole_color_to(
