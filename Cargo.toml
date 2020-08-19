@@ -10,8 +10,11 @@ glium = "*"
 file = { path = "file" }
 render = { path = "render" }
 cgmath = "*"
-log = { version = "*", features = ["std", "max_level_debug", "release_max_level_info"] }
 elapsed = "*"
+
+[dependencies.log]
+version = "*"
+features = ["std", "max_level_debug", "release_max_level_info"]
 
 [workspace]
 members = ["file", "render"]
