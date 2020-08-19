@@ -9,9 +9,10 @@ use file::{
 use glium::{
     backend::Facade,
     implement_vertex,
-    index::PrimitiveType,
+    index::{IndexBuffer, IndexBufferAny, PrimitiveType},
     texture::{MipmapsOption, RawImage2d},
-    IndexBuffer, Rect, Texture2d, VertexBuffer,
+    vertex::{VertexBuffer, VertexBufferAny},
+    Rect, Texture2d,
 };
 use itertools::Itertools;
 use log::{debug, info};
@@ -25,18 +26,18 @@ use std::{
 const TRANSPARENT_TEXTURES: [&str; 2] = ["sky", "aaatrigger"];
 
 #[derive(Copy, Clone)]
-pub struct GlVertex {
+struct Vertex {
     position: [f32; 3],
     tex_coords: [f32; 2],
     normal: [f32; 3],
 }
 
-implement_vertex!(GlVertex, position, tex_coords, normal);
+implement_vertex!(Vertex, position, tex_coords, normal);
 
 pub struct MapRender {
-    vbo: VertexBuffer<GlVertex>,
-    textured_ibos: HashMap<String, IndexBuffer<u32>>, // lowercase
-    textures: HashMap<String, Texture2d>,             // lowercase
+    vbo: VertexBufferAny,
+    textured_ibos: HashMap<String, IndexBufferAny>, // lowercase
+    textures: HashMap<String, Texture2d>,           // lowercase
 }
 
 #[inline]
@@ -126,7 +127,7 @@ impl MapRender {
                             } as usize;
                             &vertices[i]
                         })
-                        .map(move |v| GlVertex {
+                        .map(move |v| Vertex {
                             position: [v.0 + origin.0, v.1 + origin.1, v.2 + origin.2],
                             tex_coords: calculate_uvs(&v, texinfo, texture),
                             normal,
@@ -145,14 +146,16 @@ impl MapRender {
                     debug!("{} triangles using `{}` miptex", indices.len() / 3, &k);
                     (
                         k,
-                        IndexBuffer::new(facade, PrimitiveType::TrianglesList, &indices).unwrap(),
+                        IndexBuffer::new(facade, PrimitiveType::TrianglesList, &indices)
+                            .unwrap()
+                            .into(),
                     )
                 })
                 .collect();
 
             info!("Textured render groups: {}", textured_ibos.len());
 
-            let vbo = VertexBuffer::new(facade, &vbo_vertices).unwrap();
+            let vbo = VertexBuffer::new(facade, &vbo_vertices).unwrap().into();
             info!("Vertices: {}", vbo_vertices.len());
 
             Self {
@@ -166,11 +169,11 @@ impl MapRender {
         out
     }
 
-    pub const fn vbo(&self) -> &VertexBuffer<GlVertex> {
+    pub const fn vbo(&self) -> &VertexBufferAny {
         &self.vbo
     }
 
-    pub fn textured_ibos(&self) -> impl Iterator<Item = (&Texture2d, &IndexBuffer<u32>)> {
+    pub fn textured_ibos(&self) -> impl Iterator<Item = (&Texture2d, &IndexBufferAny)> {
         self.textured_ibos
             .iter()
             .filter_map(move |(key, value)| Some((self.textures.get(key)?, value)))
