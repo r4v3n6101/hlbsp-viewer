@@ -26,14 +26,14 @@ struct Opt {
         short,
         long = "wad",
         parse(from_os_str),
-        help = "Paths of wad files which are required to load textures"
+        help = "Path to wad files which are required to load textures"
     )]
     wad_path: Vec<PathBuf>,
     #[structopt(
         short,
         long = "skybox",
         parse(from_os_str),
-        help = "Path to directory stores cubemap textures"
+        help = "Path to directory stores skybox textures"
     )]
     skybox_path: PathBuf,
 }
@@ -100,9 +100,9 @@ fn start_window_loop(map: &RawMap, wad_path: &[PathBuf], cubemap: &Cubemap) {
         depth: glium::Depth {
             test: glium::DepthTest::IfLessOrEqual,
             write: true,
-            ..Default::default()
+            ..glium::Depth::default()
         },
-        ..Default::default()
+        ..glium::DrawParameters::default()
     };
 
     event_loop.run(move |event, _, control_flow| {

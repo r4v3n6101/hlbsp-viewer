@@ -149,6 +149,7 @@ impl Skybox {
                 MagnifySamplerFilter::Linear,
             );
         }
+
         Self {
             vbo: vbo.into(),
             ibo: ibo.into(),
