@@ -5,6 +5,7 @@ use nom::{
     number::streaming::le_u32,
     sequence::tuple,
 };
+use std::iter::once;
 
 pub const MIP_NUM: usize = 4;
 const NAME_LEN: usize = 16;
@@ -100,7 +101,13 @@ impl<'a> MipTexture<'a> {
             self.color_indices?[mip_level]
                 .iter()
                 .map(|&i| i as usize)
-                .flat_map(|i| color_table[3 * i..3 * (i + 1)].iter().copied())
+                .flat_map(|i| {
+                    let r = color_table[3 * i];
+                    let g = color_table[3 * i + 1];
+                    let b = color_table[3 * i + 2];
+                    let a = if r < 30 && g < 30 && b > 125 { 0 } else { 255 };
+                    once(r).chain(once(g)).chain(once(b)).chain(once(a))
+                })
                 .collect(),
         )
     }
