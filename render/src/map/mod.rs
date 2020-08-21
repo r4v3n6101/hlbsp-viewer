@@ -36,11 +36,11 @@ struct Vertex {
 implement_vertex!(Vertex, position, tex_coords, normal);
 
 #[inline]
-fn calculate_uvs(vertex: &Vec3, texinfo: &TexInfo, texture: &MipTexture) -> [f32; 2] {
+fn calculate_uvs(vertex: &Vec3, texinfo: &TexInfo) -> [f32; 2] {
     let dot_product = |a: &Vec3, b: &Vec3| a.0 * b.0 + a.1 * b.1 + a.2 * b.2;
     [
-        (dot_product(vertex, &texinfo.vs) + texinfo.ss) / (texture.main_width() as f32),
-        (dot_product(vertex, &texinfo.vt) + texinfo.st) / (texture.main_height() as f32),
+        dot_product(vertex, &texinfo.vs) + texinfo.ss,
+        dot_product(vertex, &texinfo.vt) + texinfo.st,
     ]
 }
 
@@ -129,7 +129,7 @@ impl Map {
                     })
                     .map(move |v| Vertex {
                         position: [v.0 + origin.0, v.1 + origin.1, v.2 + origin.2],
-                        tex_coords: calculate_uvs(&v, texinfo, texture),
+                        tex_coords: calculate_uvs(&v, texinfo),
                         normal,
                     })
                     .collect_vec();
