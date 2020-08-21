@@ -1,11 +1,12 @@
 #version 140
 
 in vec2 o_tex_coords;
-in vec3 o_normal;
+in vec2 o_light_tex_coords;
 
-uniform sampler2D tex;
+uniform sampler2D colormap;
+uniform sampler2D lightmap;
 
 void main() {
-    vec2 tex_size = textureSize(tex, 0);
-    gl_FragColor = texture(tex, o_tex_coords / tex_size);
+    vec4 light = texture(lightmap, o_light_tex_coords / textureSize(lightmap, 0));
+    gl_FragColor = texture(colormap, o_tex_coords / textureSize(colormap, 0));
 }

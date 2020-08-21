@@ -30,10 +30,11 @@ const TRANSPARENT_TEXTURES: [&str; 2] = ["sky", "aaatrigger"];
 struct Vertex {
     position: [f32; 3],
     tex_coords: [f32; 2],
+    light_tex_coords: [f32; 2],
     normal: [f32; 3],
 }
 
-implement_vertex!(Vertex, position, tex_coords, normal);
+implement_vertex!(Vertex, position, tex_coords, light_tex_coords, normal);
 
 #[inline]
 fn calculate_uvs(vertex: &Vec3, texinfo: &TexInfo) -> [f32; 2] {
@@ -60,6 +61,7 @@ pub struct Map {
     vbo: VertexBufferAny,
     textured_ibos: HashMap<String, IndexBufferAny>, // lowercase
     textures: HashMap<String, Texture2d>,           // lowercase
+    lightmap: Texture2d,
     program: Program,
 }
 
@@ -130,6 +132,7 @@ impl Map {
                     .map(move |v| Vertex {
                         position: [v.0 + origin.0, v.1 + origin.1, v.2 + origin.2],
                         tex_coords: calculate_uvs(&v, texinfo),
+                        light_tex_coords: [0.0, 0.0], // TODO
                         normal,
                     })
                     .collect_vec();
@@ -166,10 +169,14 @@ impl Map {
         )
         .unwrap();
 
+        let light_image = RawImage2d::from_raw_rgba(vec![100; 16 * 16 * 4], (16, 16));
+        let lightmap = Texture2d::new(facade, light_image).unwrap();
+
         Self {
             vbo,
             textured_ibos,
             textures: loaded_textures,
+            lightmap,
             program,
         }
     }
@@ -221,15 +228,18 @@ impl Map {
         mvp: [[f32; 4]; 4],
         draw_params: &DrawParameters,
     ) {
+        let lightmap = &self.lightmap;
         self.textured_ibos.iter().for_each(|(tex, ibo)| {
-            let tex = self.textures.get(tex).unwrap();
-            let uniforms = uniform! {
-                mvp: mvp,
-                tex: tex,
-            };
-            surface
-                .draw(&self.vbo, ibo, &self.program, &uniforms, &draw_params)
-                .unwrap();
+            if let Some(colormap) = self.textures.get(tex) {
+                let uniforms = uniform! {
+                    mvp: mvp,
+                    colormap: colormap,
+                    lightmap: lightmap,
+                };
+                surface
+                    .draw(&self.vbo, ibo, &self.program, &uniforms, &draw_params)
+                    .unwrap();
+            }
         });
     }
 }
