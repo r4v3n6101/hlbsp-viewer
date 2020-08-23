@@ -10,10 +10,13 @@ use glium::{
     implement_vertex,
     index::{IndexBuffer, IndexBufferAny, PrimitiveType},
     program,
-    texture::{MipmapsOption, RawImage2d},
+    texture::{
+        buffer_texture::{BufferTexture, BufferTextureType},
+        MipmapsOption, RawImage2d, Texture2d,
+    },
     uniform,
     vertex::{VertexBuffer, VertexBufferAny},
-    DrawParameters, Program, Rect, Surface, Texture2d,
+    DrawParameters, Program, Rect, Surface,
 };
 use itertools::Itertools;
 use log::{debug, info};
@@ -31,10 +34,20 @@ struct Vertex {
     position: [f32; 3],
     tex_coords: [f32; 2],
     light_tex_coords: [f32; 2],
+    lightmap_offset: u32,
+    lightmap_size: [u32; 2],
     normal: [f32; 3],
 }
 
-implement_vertex!(Vertex, position, tex_coords, light_tex_coords, normal);
+implement_vertex!(
+    Vertex,
+    position,
+    tex_coords,
+    light_tex_coords,
+    lightmap_offset,
+    lightmap_size,
+    normal
+);
 
 #[inline]
 fn calculate_uvs(vertex: &Vec3, texinfo: &TexInfo) -> [f32; 2] {
@@ -61,7 +74,7 @@ pub struct Map {
     vbo: VertexBufferAny,
     textured_ibos: HashMap<String, IndexBufferAny>, // lowercase
     textures: HashMap<String, Texture2d>,           // lowercase
-    lightmap: Texture2d,
+    lightmap: BufferTexture<[u8; 4]>,
     program: Program,
 }
 
@@ -72,6 +85,7 @@ impl Map {
         let surfedges = parse_surfedges(map.lump_data(LumpType::Surfegdes)).unwrap();
         let normals = parse_normals_from_planes(map.lump_data(LumpType::Planes)).unwrap();
         let faces = parse_faces(map.lump_data(LumpType::Faces)).unwrap();
+        let lightmap = map.lump_data(LumpType::Lighting);
         let texinfos = parse_texinfos(map.lump_data(LumpType::TexInfo)).unwrap();
         let textures = parse_textures(map.lump_data(LumpType::Textures)).unwrap();
         let models = parse_models(map.lump_data(LumpType::Models)).unwrap();
@@ -117,7 +131,8 @@ impl Map {
                 };
 
                 let begin = vbo_vertices.len();
-                let v = surfedges
+                let lightmap_offset = f.lightmap;
+                let mut verts = surfedges
                     .iter()
                     .skip(f.surfedge_id)
                     .take(f.surfedge_num)
@@ -132,11 +147,43 @@ impl Map {
                     .map(move |v| Vertex {
                         position: [v.0 + origin.0, v.1 + origin.1, v.2 + origin.2],
                         tex_coords: calculate_uvs(&v, texinfo),
-                        light_tex_coords: [0.0, 0.0], // TODO
+                        light_tex_coords: [0.0, 0.0],
+                        lightmap_offset: (lightmap_offset / 3) as u32,
+                        lightmap_size: [0, 0],
                         normal,
                     })
                     .collect_vec();
-                vbo_vertices.extend(v);
+
+                let ([mut min_u, mut min_v], [mut max_u, mut max_v]) =
+                    (verts[0].tex_coords, verts[0].tex_coords);
+
+                min_u = min_u.floor();
+                min_v = min_v.floor();
+                max_u = max_u.floor();
+                max_v = max_v.floor();
+
+                for vert in &verts {
+                    let [u, v] = vert.tex_coords;
+                    min_u = u.floor().min(min_u);
+                    max_u = u.floor().max(max_u);
+
+                    min_v = v.floor().min(min_v);
+                    max_v = v.floor().max(max_v);
+                }
+
+                let lightmap_size = [
+                    ((max_u / 16.0).ceil() - (min_u / 16.0).floor() + 1.0) as u32,
+                    ((max_v / 16.0).ceil() - (min_v / 16.0).floor() + 1.0) as u32,
+                ];
+
+                verts.iter_mut().for_each(|v| {
+                    let [s, t] = v.tex_coords;
+
+                    v.lightmap_size = lightmap_size;
+                    v.light_tex_coords = [(s - min_u) / 16.0, (t - min_v) / 16.0];
+                });
+
+                vbo_vertices.extend(verts);
                 let end = vbo_vertices.len();
                 let indices = triangulate((begin..end).collect_vec());
 
@@ -169,8 +216,18 @@ impl Map {
         )
         .unwrap();
 
-        let light_image = RawImage2d::from_raw_rgba(vec![100; 16 * 16 * 4], (16, 16));
-        let lightmap = Texture2d::new(facade, light_image).unwrap();
+        let lightmap = lightmap
+            .chunks(3)
+            .filter_map(|rgb| {
+                if let [r, g, b] = rgb {
+                    Some([*r, *g, *b, 255])
+                } else {
+                    None
+                }
+            })
+            .collect_vec();
+        let lightmap =
+            BufferTexture::persistent(facade, &lightmap, BufferTextureType::Float).unwrap();
 
         Self {
             vbo,
