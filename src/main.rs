@@ -11,6 +11,7 @@ use structopt::StructOpt;
 use support::{init_logger, Camera};
 
 const MOVE_SPEED: f32 = 0.01;
+const MAP_SCALE: f32 = 0.0007;
 // Safe, because there's no multiple thread accessing this
 static mut MOUSE_GRABBED: bool = true;
 
@@ -91,10 +92,10 @@ fn start_window_loop(map: &RawMap, wad_path: &[PathBuf], cubemap: &Cubemap) {
             });
         map_render
     });
-    info!("Map loaded in {}", elapsed);
+    info!("Map was loaded in {}", elapsed);
 
     let (elapsed, skybox) = measure_time(|| Skybox::new(&display, cubemap));
-    info!("Skybox loaded in {}", elapsed);
+    info!("Skybox was loaded in {}", elapsed);
 
     let draw_params = glium::DrawParameters {
         depth: glium::Depth {
@@ -128,6 +129,8 @@ fn start_window_loop(map: &RawMap, wad_path: &[PathBuf], cubemap: &Cubemap) {
                 }
                 {
                     let mvp = projection * view; // TODO : model matrix for scaling
+                                                 //let model = Matrix3::from_cols(c0, c1, c2);
+                                                 // TODO : scale and rotate
                     map_render.render(&mut target, mvp.into(), &draw_params);
                 }
                 target.finish().unwrap();

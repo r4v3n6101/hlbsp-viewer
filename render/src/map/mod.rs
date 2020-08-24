@@ -20,7 +20,7 @@ use glium::{
     DrawParameters, Program, Rect, Surface,
 };
 use itertools::Itertools;
-use log::{debug, info};
+use log::debug;
 use lumps::*;
 use miptex::{MipTexture, MIP_NUM};
 use std::{
@@ -207,10 +207,7 @@ impl Map {
             })
             .collect();
 
-        info!("Textured render groups: {}", textured_ibos.len());
-
         let vbo = VertexBuffer::new(facade, &vbo_vertices).unwrap().into();
-        info!("Vertices: {}", vbo_vertices.len());
 
         let (elapsed, program) = measure_time(|| {
             program!(facade,
@@ -221,7 +218,7 @@ impl Map {
             )
             .unwrap()
         });
-        info!("Shaders were loaded in {}", elapsed);
+        debug!("Map shader was loaded in {}", elapsed);
 
         let (elapsed, lightmap) = measure_time(|| {
             let lightmap = lightmap
@@ -236,7 +233,14 @@ impl Map {
                 .collect_vec();
             BufferTexture::persistent(facade, &lightmap, BufferTextureType::Float).unwrap()
         });
-        info!("Lightmap wad loaded in {}", elapsed);
+        debug!("Lightmap was loaded in {}", elapsed);
+
+        debug!(
+            "Map summary: [Vertices={}, Texture groups={}, Lightmap texels={}]",
+            vbo_vertices.len(),
+            textured_ibos.len(),
+            lightmap.len()
+        );
 
         Self {
             vbo,

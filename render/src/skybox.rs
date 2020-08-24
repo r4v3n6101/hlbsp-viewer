@@ -1,3 +1,4 @@
+use elapsed::measure_time;
 use file::cubemap::Cubemap as CubemapFile;
 use glium::{
     backend::Facade,
@@ -11,6 +12,7 @@ use glium::{
     vertex::{VertexBuffer, VertexBufferAny},
     BlitTarget, DrawParameters, Program, Surface,
 };
+use log::debug;
 
 #[derive(Copy, Clone)]
 struct Vertex {
@@ -119,13 +121,17 @@ impl Skybox {
     pub fn new<F: ?Sized + Facade>(facade: &F, cubemap_file: &CubemapFile) -> Self {
         let vbo = VertexBuffer::new(facade, &CUBE_VERTICES).unwrap();
         let ibo = IndexBuffer::new(facade, PrimitiveType::TrianglesList, &CUBE_INDICES).unwrap();
-        let program = program!(facade,
-            140 => {
-                vertex: include_str!("../shaders/skybox/vert.glsl"),
-                fragment: include_str!("../shaders/skybox/frag.glsl"),
-            }
-        )
-        .unwrap();
+
+        let (elapsed, program) = measure_time(|| {
+            program!(facade,
+                140 => {
+                    vertex: include_str!("../shaders/skybox/vert.glsl"),
+                    fragment: include_str!("../shaders/skybox/frag.glsl"),
+                }
+            )
+            .unwrap()
+        });
+        debug!("Skybox shader was loaded in {}", elapsed);
 
         let dimension = cubemap_file.dimension();
         let sides = cubemap_file.sides();
@@ -139,15 +145,19 @@ impl Skybox {
         };
 
         for side in &CUBEMAP_SIDES {
-            let i = side.get_layer_index();
-            let image = RawImage2d::from_raw_rgba(sides[i].clone(), (dimension, dimension)); // TODO : clone
-            let texture = Texture2d::new(facade, image).unwrap();
-            let target = SimpleFrameBuffer::new(facade, cubemap.main_level().image(*side)).unwrap();
-            texture.as_surface().blit_whole_color_to(
-                &target,
-                &blit_rect,
-                MagnifySamplerFilter::Linear,
-            );
+            let (elapsed, ()) = measure_time(|| {
+                let i = side.get_layer_index();
+                let image = RawImage2d::from_raw_rgba(sides[i].clone(), (dimension, dimension)); // TODO : clone
+                let texture = Texture2d::new(facade, image).unwrap();
+                let target =
+                    SimpleFrameBuffer::new(facade, cubemap.main_level().image(*side)).unwrap();
+                texture.as_surface().blit_whole_color_to(
+                    &target,
+                    &blit_rect,
+                    MagnifySamplerFilter::Linear,
+                );
+            });
+            debug!("{:?} was loaded in {}", side, elapsed);
         }
 
         Self {
