@@ -1,6 +1,7 @@
 mod lumps;
 mod miptex;
 
+use elapsed::measure_time;
 use file::{
     bsp::{LumpType, RawMap},
     wad::Archive,
@@ -119,8 +120,11 @@ impl Map {
                 }
 
                 if !texture.is_empty() && !loaded_textures.contains_key(&tex_name) {
-                    loaded_textures.insert(tex_name.clone(), Self::upload_miptex(facade, texture));
-                    debug!("Load intern miptex: {}", &tex_name);
+                    let (elapsed, ()) = measure_time(|| {
+                        loaded_textures
+                            .insert(tex_name.clone(), Self::upload_miptex(facade, texture));
+                    });
+                    debug!("Load intern miptex `{}` in {}", &tex_name, elapsed);
                 }
 
                 let n = &normals[f.plane_id];
@@ -208,26 +212,31 @@ impl Map {
         let vbo = VertexBuffer::new(facade, &vbo_vertices).unwrap().into();
         info!("Vertices: {}", vbo_vertices.len());
 
-        let program = program!(facade,
-            140 => {
-                vertex: include_str!("../../shaders/map/vert.glsl"),
-                fragment: include_str!("../../shaders/map/frag.glsl"),
-            },
-        )
-        .unwrap();
+        let (elapsed, program) = measure_time(|| {
+            program!(facade,
+                140 => {
+                    vertex: include_str!("../../shaders/map/vert.glsl"),
+                    fragment: include_str!("../../shaders/map/frag.glsl"),
+                },
+            )
+            .unwrap()
+        });
+        info!("Shaders were loaded in {}", elapsed);
 
-        let lightmap = lightmap
-            .chunks(3)
-            .filter_map(|rgb| {
-                if let [r, g, b] = rgb {
-                    Some([*r, *g, *b, 255])
-                } else {
-                    None
-                }
-            })
-            .collect_vec();
-        let lightmap =
-            BufferTexture::persistent(facade, &lightmap, BufferTextureType::Float).unwrap();
+        let (elapsed, lightmap) = measure_time(|| {
+            let lightmap = lightmap
+                .chunks(3)
+                .filter_map(|rgb| {
+                    if let [r, g, b] = rgb {
+                        Some([*r, *g, *b, 255])
+                    } else {
+                        None
+                    }
+                })
+                .collect_vec();
+            BufferTexture::persistent(facade, &lightmap, BufferTextureType::Float).unwrap()
+        });
+        info!("Lightmap wad loaded in {}", elapsed);
 
         Self {
             vbo,
@@ -267,14 +276,16 @@ impl Map {
         let present: HashSet<_> = self.textures.keys().cloned().collect();
         let required: HashSet<_> = self.textured_ibos.keys().cloned().collect();
         let loaded = required.difference(&present).cloned().filter_map(|name| {
-            let entry = archive
-                .get_by_name(name.to_ascii_uppercase())
-                .or_else(|| archive.get_by_name(name.to_ascii_lowercase()))?;
-            let miptex = MipTexture::parse(entry.data()).ok()?;
-            let tex2d = Self::upload_miptex(facade, &miptex);
-            debug!("Load extern miptex: {}", &name);
+            let (elapsed, tex2d) = measure_time(|| {
+                let entry = archive
+                    .get_by_name(name.to_ascii_uppercase())
+                    .or_else(|| archive.get_by_name(name.to_ascii_lowercase()))?;
+                let miptex = MipTexture::parse(entry.data()).ok()?;
+                Some(Self::upload_miptex(facade, &miptex))
+            });
+            debug!("Load extern miptex `{}` in {}", &name, elapsed);
 
-            Some((name, tex2d))
+            Some((name, tex2d?))
         });
         self.textures.extend(loaded);
     }
