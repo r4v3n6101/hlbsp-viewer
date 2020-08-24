@@ -18,3 +18,9 @@ features = ["std", "max_level_debug", "release_max_level_info"]
 
 [workspace]
 members = ["file", "render"]
+
+[profile.release]
+opt-level = 'z'
+lto = true
+panic = "abort"
+codegen-units = 1
