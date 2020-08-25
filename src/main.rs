@@ -1,6 +1,6 @@
 mod support;
 
-use cgmath::{Matrix3, Matrix4};
+use cgmath::{Deg, Matrix3, Matrix4};
 use elapsed::measure_time;
 use file::{bsp::RawMap, cubemap::Cubemap, wad::Archive};
 use glium::{glutin, Surface};
@@ -122,15 +122,14 @@ fn start_window_loop(map: &RawMap, wad_path: &[PathBuf], cubemap: &Cubemap) {
 
                 target.clear_color_and_depth((1.0, 1.0, 0.0, 1.0), 1.0);
                 {
-                    let view3 =
+                    let view =
                         Matrix3::from_cols(view.x.truncate(), view.y.truncate(), view.z.truncate());
-                    let mvp = projection * Matrix4::from(view3);
+                    let mvp = projection * Matrix4::from(view);
                     skybox.render(&mut target, mvp.into(), &draw_params);
                 }
                 {
-                    let mvp = projection * view; // TODO : model matrix for scaling
-                                                 //let model = Matrix3::from_cols(c0, c1, c2);
-                                                 // TODO : scale and rotate
+                    let model = Matrix3::from_angle_x(Deg(-90.0)) * MAP_SCALE;
+                    let mvp = projection * view * Matrix4::from(model);
                     map_render.render(&mut target, mvp.into(), &draw_params);
                 }
                 target.finish().unwrap();
