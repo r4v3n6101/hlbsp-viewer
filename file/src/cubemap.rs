@@ -1,4 +1,5 @@
-use arraylib::ArrayMap;
+use arraylib::Array;
+use image::ImageResult;
 use std::path::Path;
 
 const EXTENSION: &str = "tga";
@@ -10,18 +11,23 @@ pub struct Cubemap {
 }
 
 impl Cubemap {
-    pub fn read<S: AsRef<str>, P: AsRef<Path>>(name: S, path: P) -> Self {
+    pub fn read<S: AsRef<str>, P: AsRef<Path>>(name: S, path: P) -> ImageResult<Self> {
         let mut dimension = 0;
-        let sides = SIDES.map(|postfix| {
-            let file_name = format!("{}{}.{}", name.as_ref(), postfix, EXTENSION);
-            let file_path = path.as_ref().join(file_name);
-            let image = image::open(file_path).unwrap().to_rgba(); // TODO : remove unwrap
-            if dimension == 0 {
-                dimension = image.width(); // TODO : additional checks that it's square texture
-            }
-            image.into_raw()
-        });
-        Self { dimension, sides }
+        let sides: Vec<_> = SIDES
+            .iter()
+            .map(|postfix| {
+                let file_name = format!("{}{}.{}", name.as_ref(), postfix, EXTENSION);
+                let file_path = path.as_ref().join(file_name);
+                let image = image::open(file_path)?.to_rgba();
+                if dimension == 0 {
+                    dimension = image.width(); // TODO : additional checks that it's square texture
+                }
+                Ok(image.into_raw())
+            })
+            .collect::<ImageResult<_>>()?;
+        let sides = <[Vec<u8>; 6]>::from_iter(sides.into_iter());
+
+        Ok(Self { dimension, sides })
     }
 
     pub const fn dimension(&self) -> u32 {

@@ -1,7 +1,10 @@
+mod entities;
 mod lumps;
 mod miptex;
 
+use cgmath::{vec3, Deg, Matrix4};
 use elapsed::measure_time;
+use entities::Entities;
 use file::{
     bsp::{LumpType, RawMap},
     wad::Archive,
@@ -16,6 +19,7 @@ use glium::{
         MipmapsOption, RawImage2d, Texture2d,
     },
     uniform,
+    uniforms::MinifySamplerFilter,
     vertex::{VertexBuffer, VertexBufferAny},
     DrawParameters, Program, Rect, Surface,
 };
@@ -29,6 +33,7 @@ use std::{
 };
 
 const TRANSPARENT_TEXTURES: [&str; 2] = ["sky", "aaatrigger"];
+const MAP_SCALE: f32 = 0.0007;
 
 #[derive(Copy, Clone)]
 struct Vertex {
@@ -72,15 +77,18 @@ fn triangulate(vertices: Vec<usize>) -> Vec<usize> {
 }
 
 pub struct Map {
+    base_model: Matrix4<f32>,
     vbo: VertexBufferAny,
     textured_ibos: HashMap<String, IndexBufferAny>, // lowercase
     textures: HashMap<String, Texture2d>,           // lowercase
     lightmap: BufferTexture<[u8; 4]>,
     program: Program,
+    skyname: Option<String>,
 }
 
 impl Map {
-    pub fn new<F: ?Sized + Facade>(map: &RawMap, facade: &F) -> Self {
+    pub fn new<F: ?Sized + Facade>(facade: &F, map: &RawMap) -> Self {
+        let entities = parse_entities_str(map.lump_data(LumpType::Entities)).unwrap();
         let vertices = parse_vertices(map.lump_data(LumpType::Vertices)).unwrap();
         let edges = parse_edges(map.lump_data(LumpType::Edges)).unwrap();
         let surfedges = parse_surfedges(map.lump_data(LumpType::Surfegdes)).unwrap();
@@ -94,6 +102,10 @@ impl Map {
         let root_model = &models[0];
 
         let origin = root_model.origin;
+        let base_model = Matrix4::from_translation(vec3(origin.0, origin.1, origin.2))
+            * Matrix4::from_angle_x(Deg(-90.0))
+            * Matrix4::from_scale(MAP_SCALE);
+
         let vbo_size = faces
             .iter()
             .skip(root_model.face_id)
@@ -149,7 +161,7 @@ impl Map {
                         &vertices[i]
                     })
                     .map(move |v| Vertex {
-                        position: [v.0 + origin.0, v.1 + origin.1, v.2 + origin.2],
+                        position: [v.0, v.1, v.2],
                         tex_coords: calculate_uvs(&v, texinfo),
                         light_tex_coords: [0.0, 0.0],
                         lightmap_offset: (lightmap_offset / 3) as u32,
@@ -235,6 +247,13 @@ impl Map {
         });
         debug!("Lightmap was loaded in {}", elapsed);
 
+        let entities = Entities::parse(entities).unwrap();
+        let skyname = entities
+            .entities()
+            .iter()
+            .find_map(|e| e.properties().get("skyname"))
+            .map(|e| e.to_string());
+
         debug!(
             "Map summary: [Vertices={}, Texture groups={}, Lightmap texels={}]",
             vbo_vertices.len(),
@@ -243,12 +262,22 @@ impl Map {
         );
 
         Self {
+            base_model,
             vbo,
             textured_ibos,
             textures: loaded_textures,
             lightmap,
             program,
+            skyname,
         }
+    }
+
+    pub const fn base_model_matrix(&self) -> &Matrix4<f32> {
+        &self.base_model
+    }
+
+    pub fn skyname(&self) -> Option<&String> {
+        self.skyname.as_ref()
     }
 
     fn upload_miptex<F: ?Sized + Facade>(facade: &F, miptex: &MipTexture) -> Texture2d {
@@ -297,19 +326,23 @@ impl Map {
     pub fn render<S: Surface>(
         &self,
         surface: &mut S,
-        mvp: [[f32; 4]; 4],
+        projection: Matrix4<f32>,
+        view: Matrix4<f32>,
+        model: Matrix4<f32>,
         draw_params: &DrawParameters,
     ) {
         let lightmap = &self.lightmap;
+        let mvp = projection * view * model;
+        let mvp: [[f32; 4]; 4] = mvp.into();
         self.textured_ibos.iter().for_each(|(tex, ibo)| {
             if let Some(colormap) = self.textures.get(tex) {
                 let uniforms = uniform! {
                     mvp: mvp,
-                    colormap: colormap,
+                    colormap: colormap.sampled().minify_filter(MinifySamplerFilter::LinearMipmapNearest),
                     lightmap: lightmap,
                 };
                 surface
-                    .draw(&self.vbo, ibo, &self.program, &uniforms, &draw_params)
+                    .draw(&self.vbo, ibo, &self.program, &uniforms, draw_params)
                     .unwrap();
             }
         });

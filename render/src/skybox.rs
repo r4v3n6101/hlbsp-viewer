@@ -1,3 +1,4 @@
+use cgmath::{Matrix3, Matrix4};
 use elapsed::measure_time;
 use file::cubemap::Cubemap as CubemapFile;
 use glium::{
@@ -171,15 +172,21 @@ impl Skybox {
     pub fn render<S: Surface>(
         &self,
         surface: &mut S,
-        mvp: [[f32; 4]; 4],
+        projection: Matrix4<f32>,
+        view: Matrix4<f32>,
         draw_params: &DrawParameters,
     ) {
+        let view = Matrix3::from_cols(view.x.truncate(), view.y.truncate(), view.z.truncate());
+        let view = Matrix4::from(view);
+        let mvp = projection * view;
+        let mvp: [[f32; 4]; 4] = mvp.into();
+
         let uniforms = uniform! {
             mvp: mvp,
             cubetex: self.cubemap.sampled().magnify_filter(MagnifySamplerFilter::Linear),
         };
         surface
-            .draw(&self.vbo, &self.ibo, &self.program, &uniforms, &draw_params)
+            .draw(&self.vbo, &self.ibo, &self.program, &uniforms, draw_params)
             .unwrap();
     }
 }
