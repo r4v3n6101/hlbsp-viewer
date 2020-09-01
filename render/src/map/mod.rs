@@ -24,7 +24,7 @@ use glium::{
     DrawParameters, Program, Rect, Surface,
 };
 use itertools::Itertools;
-use log::debug;
+use log::{debug, info};
 use lumps::*;
 use miptex::{MipTexture, MIP_NUM};
 use std::{
@@ -254,7 +254,7 @@ impl Map {
             .find_map(|e| e.properties().get("skyname"))
             .map(|e| e.to_string());
 
-        debug!(
+        info!(
             "Map summary: [Vertices={}, Texture groups={}, Lightmap texels={}]",
             vbo_vertices.len(),
             textured_ibos.len(),

@@ -92,8 +92,9 @@ fn start_window_loop(map: &RawMap, wad_path: &[PathBuf], skybox_path: Option<&Pa
     info!("Map was loaded in {}", elapsed);
 
     let (elapsed, skybox) = measure_time(|| {
-        skybox_path.and_then(|path| {
-            map_render.skyname().and_then(|skyname| {
+        map_render.skyname().and_then(|skyname| {
+            info!("Skybox name: {}", skyname);
+            skybox_path.and_then(|path| {
                 Cubemap::read(skyname, path)
                     .ok()
                     .map(|cubemap| Skybox::new(&display, &cubemap))
