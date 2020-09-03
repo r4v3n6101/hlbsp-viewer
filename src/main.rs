@@ -1,11 +1,8 @@
 mod support;
 
-use elapsed::measure_time;
-use file::{bsp::RawMap, cubemap::Cubemap, wad::Archive};
 use glium::{glutin, Surface};
-use log::info;
-use render::{Map, Skybox};
-use std::path::PathBuf;
+use render::Level;
+use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 use support::{init_logger, Camera};
 
@@ -40,9 +37,7 @@ struct Opt {
 fn main() {
     init_logger().unwrap();
     let opt = Opt::from_args();
-    let file = std::fs::read(&opt.bsp_path).unwrap();
-    let map = RawMap::parse(&file).unwrap();
-    start_window_loop(&map, &opt.wad_path, opt.skybox_path.as_ref());
+    start_window_loop(opt.bsp_path, &opt.wad_path, opt.skybox_path);
 }
 
 fn get_window_center(window: &glutin::window::Window) -> glutin::dpi::PhysicalPosition<f64> {
@@ -67,7 +62,7 @@ fn ungrab_cursor(window: &glutin::window::Window) {
     window.set_cursor_grab(false).unwrap();
 }
 
-fn start_window_loop(map: &RawMap, wad_path: &[PathBuf], skybox_path: Option<&PathBuf>) {
+fn start_window_loop<P: AsRef<Path>>(bsp_path: P, wad_path: &[P], skybox_path: Option<P>) {
     let event_loop = glutin::event_loop::EventLoop::new();
     let wb = glutin::window::WindowBuilder::new()
         .with_title("hlbsp viewer")
@@ -78,32 +73,7 @@ fn start_window_loop(map: &RawMap, wad_path: &[PathBuf], skybox_path: Option<&Pa
     let display = glium::Display::new(wb, cb, &event_loop).unwrap();
     grab_cursor(display.gl_window().window());
 
-    let (elapsed, map_render) = measure_time(|| {
-        let mut map_render = Map::new(&display, map);
-        wad_path
-            .iter()
-            .map(|path| std::fs::read(path).unwrap())
-            .for_each(|file| {
-                let archive = Archive::parse(&file).unwrap();
-                map_render.load_from_archive(&display, &archive)
-            });
-        map_render
-    });
-    info!("Map was loaded in {}", elapsed);
-
-    let (elapsed, skybox) = measure_time(|| {
-        map_render.skyname().and_then(|skyname| {
-            info!("Skybox name: {}", skyname);
-            skybox_path.and_then(|path| {
-                Cubemap::read(skyname, path)
-                    .ok()
-                    .map(|cubemap| Skybox::new(&display, &cubemap))
-            })
-        })
-    });
-    if skybox.is_some() {
-        info!("Skybox wad loaded in {}", elapsed);
-    }
+    let level_render = Level::new(&display, bsp_path, wad_path.as_ref(), skybox_path);
 
     let draw_params = glium::DrawParameters {
         depth: glium::Depth {
@@ -127,13 +97,10 @@ fn start_window_loop(map: &RawMap, wad_path: &[PathBuf], skybox_path: Option<&Pa
                 let mut target = display.draw();
                 let projection = camera.perspective();
                 let view = camera.view();
-                let model = map_render.base_model_matrix();
+                let model = level_render.base_model_matrix();
 
                 target.clear_color_and_depth((1.0, 1.0, 0.0, 1.0), 1.0);
-                map_render.render(&mut target, projection, view, *model, &draw_params);
-                if let Some(skybox) = &skybox {
-                    skybox.render(&mut target, projection.into(), view.into(), &draw_params);
-                }
+                level_render.render(&mut target, projection, view, *model, &draw_params);
                 target.finish().unwrap();
             }
             _ => {

@@ -1,10 +1,8 @@
-mod entities;
 mod lumps;
 mod miptex;
 
 use cgmath::{vec3, Deg, Matrix4};
 use elapsed::measure_time;
-use entities::Entities;
 use file::{
     bsp::{LumpType, RawMap},
     wad::Archive,
@@ -83,12 +81,10 @@ pub struct Map {
     textures: HashMap<String, Texture2d>,           // lowercase
     lightmap: BufferTexture<[u8; 4]>,
     program: Program,
-    skyname: Option<String>,
 }
 
 impl Map {
     pub fn new<F: ?Sized + Facade>(facade: &F, map: &RawMap) -> Self {
-        let entities = parse_entities_str(map.lump_data(LumpType::Entities)).unwrap();
         let vertices = parse_vertices(map.lump_data(LumpType::Vertices)).unwrap();
         let edges = parse_edges(map.lump_data(LumpType::Edges)).unwrap();
         let surfedges = parse_surfedges(map.lump_data(LumpType::Surfegdes)).unwrap();
@@ -247,13 +243,6 @@ impl Map {
         });
         debug!("Lightmap was loaded in {}", elapsed);
 
-        let entities = Entities::parse(entities).unwrap();
-        let skyname = entities
-            .entities()
-            .iter()
-            .find_map(|e| e.properties().get("skyname"))
-            .map(|e| e.to_string());
-
         info!(
             "Map summary: [Vertices={}, Texture groups={}, Lightmap texels={}]",
             vbo_vertices.len(),
@@ -268,16 +257,11 @@ impl Map {
             textures: loaded_textures,
             lightmap,
             program,
-            skyname,
         }
     }
 
     pub const fn base_model_matrix(&self) -> &Matrix4<f32> {
         &self.base_model
-    }
-
-    pub fn skyname(&self) -> Option<&String> {
-        self.skyname.as_ref()
     }
 
     fn upload_miptex<F: ?Sized + Facade>(facade: &F, miptex: &MipTexture) -> Texture2d {

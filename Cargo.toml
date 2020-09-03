@@ -1,16 +1,14 @@
 [package]
 name = "hlbsp"
-version = "0.4.3"
+version = "0.4.4"
 authors = ["r4v3n6101 <raven6107@gmail.com>"]
 edition = "2018"
 
 [dependencies]
 structopt = "*"
 glium = "*"
-file = { path = "file" }
 render = { path = "render" }
 cgmath = "*"
-elapsed = "*"
 
 [dependencies.log]
 version = "*"
