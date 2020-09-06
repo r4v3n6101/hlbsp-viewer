@@ -260,10 +260,6 @@ impl Map {
         }
     }
 
-    pub const fn base_model_matrix(&self) -> &Matrix4<f32> {
-        &self.base_model
-    }
-
     fn upload_miptex<F: ?Sized + Facade>(facade: &F, miptex: &MipTexture) -> Texture2d {
         let texture = Texture2d::empty_with_mipmaps(
             facade,
@@ -300,7 +296,9 @@ impl Map {
                 let miptex = MipTexture::parse(entry.data()).ok()?;
                 Some(Self::upload_miptex(facade, &miptex))
             });
-            debug!("Load extern miptex `{}` in {}", &name, elapsed);
+            if tex2d.is_some() {
+                debug!("Load extern miptex `{}` in {}", &name, elapsed);
+            }
 
             Some((name, tex2d?))
         });
@@ -312,11 +310,10 @@ impl Map {
         surface: &mut S,
         projection: Matrix4<f32>,
         view: Matrix4<f32>,
-        model: Matrix4<f32>,
         draw_params: &DrawParameters,
     ) {
         let lightmap = &self.lightmap;
-        let mvp = projection * view * model;
+        let mvp = projection * view * self.base_model;
         let mvp: [[f32; 4]; 4] = mvp.into();
         self.textured_ibos.iter().for_each(|(tex, ibo)| {
             if let Some(colormap) = self.textures.get(tex) {

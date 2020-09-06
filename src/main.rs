@@ -95,12 +95,12 @@ fn start_window_loop<P: AsRef<Path>>(bsp_path: P, wad_path: &[P], skybox_path: O
             glutin::event::Event::MainEventsCleared => window.request_redraw(),
             glutin::event::Event::RedrawRequested(_) => {
                 let mut target = display.draw();
+
                 let projection = camera.perspective();
                 let view = camera.view();
-                let model = level_render.base_model_matrix();
 
                 target.clear_color_and_depth((1.0, 1.0, 0.0, 1.0), 1.0);
-                level_render.render(&mut target, projection, view, *model, &draw_params);
+                level_render.render(&mut target, projection, view, &draw_params);
                 target.finish().unwrap();
             }
             _ => {

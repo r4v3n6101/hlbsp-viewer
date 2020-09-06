@@ -1,7 +1,6 @@
 mod entities;
+mod level;
 mod map;
 mod skybox;
-
-mod level;
 
 pub use level::Level;

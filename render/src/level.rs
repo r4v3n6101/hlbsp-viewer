@@ -10,7 +10,7 @@ use file::{
     wad::Archive,
 };
 use glium::{backend::Facade, DrawParameters, Surface};
-use log::info;
+use log::{debug, info};
 use std::{fs::read as read_file, path::Path};
 
 pub struct Level {
@@ -33,6 +33,9 @@ impl Level {
         wad_paths.iter().for_each(|path| {
             let file = read_file(path).unwrap();
             let archive = Archive::parse(&file).unwrap();
+            if let Some(file_name) = path.as_ref().file_name() {
+                debug!("Scanning {:?} for textures", file_name);
+            }
             map_render.load_from_archive(facade, &archive);
         });
 
@@ -48,22 +51,17 @@ impl Level {
         Self { map_render, skybox }
     }
 
-    pub const fn base_model_matrix(&self) -> &Matrix4<f32> {
-        self.map_render.base_model_matrix()
-    }
-
     pub fn render<S: Surface>(
         &self,
         surface: &mut S,
         projection: Matrix4<f32>,
         view: Matrix4<f32>,
-        model: Matrix4<f32>,
         draw_params: &DrawParameters,
     ) {
         if let Some(skybox) = &self.skybox {
             skybox.render(surface, projection, view, draw_params);
         }
         self.map_render
-            .render(surface, projection, view, model, draw_params);
+            .render(surface, projection, view, draw_params);
     }
 }

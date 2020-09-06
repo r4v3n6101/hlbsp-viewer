@@ -34,7 +34,7 @@ impl Cubemap {
         self.dimension
     }
 
-    pub fn sides(&self) -> &[Vec<u8>] {
+    pub const fn sides(&self) -> &[Vec<u8>] {
         &self.sides
     }
 }
