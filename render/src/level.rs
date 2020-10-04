@@ -1,5 +1,5 @@
 use crate::{
-    entities::{get_skyname, parse_entities_str},
+    entities::{find_info_player_start, get_skyname, get_start_point, parse_entities, Vec3},
     map::Map,
     skybox::Skybox,
 };
@@ -14,6 +14,7 @@ use log::{debug, info};
 use std::{fs::read as read_file, path::Path};
 
 pub struct Level {
+    start_point: Option<Vec3>,
     map_render: Map,
     skybox: Option<Skybox>,
 }
@@ -39,8 +40,10 @@ impl Level {
             map_render.load_from_archive(facade, &archive);
         });
 
-        let entities = parse_entities_str(raw_map.lump_data(LumpType::Entities)).unwrap();
-        let skybox = get_skyname(entities).and_then(|skyname| {
+        let entities = parse_entities(raw_map.lump_data(LumpType::Entities)).unwrap();
+        let info_player_start = find_info_player_start(&entities);
+        let start_point = info_player_start.and_then(get_start_point);
+        let skybox = get_skyname(&entities).and_then(|skyname| {
             info!("Map's skyname: {}", skyname);
             skybox_path.map(|skybox_path| {
                 let cubemap = Cubemap::read(&skyname, skybox_path).unwrap();
@@ -48,7 +51,15 @@ impl Level {
             })
         });
 
-        Self { map_render, skybox }
+        Self {
+            start_point,
+            map_render,
+            skybox,
+        }
+    }
+
+    pub const fn start_point(&self) -> Option<Vec3> {
+        self.start_point
     }
 
     pub fn render<S: Surface>(

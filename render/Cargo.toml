@@ -1,6 +1,6 @@
 [package]
 name = "render"
-version = "0.3.6"
+version = "0.3.7"
 authors = ["r4v3n6101 <raven6107@gmail.com>"]
 edition = "2018"
 

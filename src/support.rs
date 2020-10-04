@@ -12,12 +12,18 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new() -> Self {
+    pub fn new<A: Into<Rad<Scal>>>(
+        width: Scal,
+        height: Scal,
+        fov: A,
+        near: Scal,
+        far: Scal,
+    ) -> Self {
         Self {
-            aspect_ratio: 4.0 / 3.0,
-            fov: Rad(std::f32::consts::PI / 2.0),
-            near: 0.001,
-            far: 1000.0,
+            aspect_ratio: width / height,
+            fov: fov.into(),
+            near,
+            far,
             position: Point3::new(0.0, 0.0, 0.0),
             rotation: Euler::new(Deg(0.0), Deg(0.0), Deg(0.0)),
         }
@@ -25,7 +31,7 @@ impl Camera {
 
     pub fn rotate_by(&mut self, pitch: Scal, yaw: Scal, roll: Scal) {
         self.rotation.x = Deg(self.rotation.x.0 + pitch);
-        // TODO : repalce with clamp when it'll be stable
+        // TODO : replace with clamp when it'll be stable
         if self.rotation.x.0 > 89.9 {
             self.rotation.x.0 = 89.9;
         } else if self.rotation.x.0 < -89.9 {
@@ -50,6 +56,12 @@ impl Camera {
 
     pub fn right(&self) -> Vector3<Scal> {
         self.forward().cross(Self::up()).normalize()
+    }
+
+    pub fn set_position(&mut self, x: Scal, y: Scal, z: Scal) {
+        self.position.x = x;
+        self.position.y = y;
+        self.position.z = z;
     }
 
     pub fn move_forward(&mut self, speed: Scal) {

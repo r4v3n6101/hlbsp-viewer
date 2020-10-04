@@ -1,7 +1,7 @@
 mod lumps;
 mod miptex;
 
-use cgmath::{vec3, Deg, Matrix4};
+use cgmath::Matrix4;
 use elapsed::measure_time;
 use file::{
     bsp::{LumpType, RawMap},
@@ -31,7 +31,6 @@ use std::{
 };
 
 const TRANSPARENT_TEXTURES: [&str; 2] = ["sky", "aaatrigger"];
-const MAP_SCALE: f32 = 0.0007;
 
 #[derive(Copy, Clone)]
 struct Vertex {
@@ -75,7 +74,7 @@ fn triangulate(vertices: Vec<usize>) -> Vec<usize> {
 }
 
 pub struct Map {
-    base_model: Matrix4<f32>,
+    origin: [f32; 3],
     vbo: VertexBufferAny,
     textured_ibos: HashMap<String, IndexBufferAny>, // lowercase
     textures: HashMap<String, Texture2d>,           // lowercase
@@ -97,10 +96,10 @@ impl Map {
 
         let root_model = &models[0];
 
-        let origin = root_model.origin;
-        let base_model = Matrix4::from_translation(vec3(origin.0, origin.1, origin.2))
-            * Matrix4::from_angle_x(Deg(-90.0))
-            * Matrix4::from_scale(MAP_SCALE);
+        let origin = {
+            let o = root_model.origin;
+            [o.0, o.1, o.2]
+        };
 
         let vbo_size = faces
             .iter()
@@ -251,7 +250,7 @@ impl Map {
         );
 
         Self {
-            base_model,
+            origin,
             vbo,
             textured_ibos,
             textures: loaded_textures,
@@ -313,12 +312,13 @@ impl Map {
         draw_params: &DrawParameters,
     ) {
         let lightmap = &self.lightmap;
-        let mvp = projection * view * self.base_model;
+        let mvp = projection * view;
         let mvp: [[f32; 4]; 4] = mvp.into();
         self.textured_ibos.iter().for_each(|(tex, ibo)| {
             if let Some(colormap) = self.textures.get(tex) {
                 let uniforms = uniform! {
                     mvp: mvp,
+                    origin: self.origin,
                     colormap: colormap.sampled().minify_filter(MinifySamplerFilter::LinearMipmapNearest),
                     lightmap: lightmap,
                 };

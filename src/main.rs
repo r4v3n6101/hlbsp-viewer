@@ -1,12 +1,14 @@
 mod support;
 
+use cgmath::Deg;
 use glium::{glutin, Surface};
 use render::Level;
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 use support::{init_logger, Camera};
 
-const MOVE_SPEED: f32 = 0.01;
+const MOVE_SPEED: f32 = 100.0;
+const CAMERA_OFFSET: f32 = 64.0;
 // Safe, because there's no multiple thread accessing this
 static mut MOUSE_GRABBED: bool = true;
 
@@ -69,13 +71,18 @@ fn start_window_loop<P: AsRef<Path>>(bsp_path: P, wad_path: &[P], skybox_path: O
         .with_inner_size(glutin::dpi::LogicalSize::new(1024.0, 768.0));
     let cb = glutin::ContextBuilder::new();
 
-    let mut camera = Camera::new();
+    let mut camera = Camera::new(1024.0, 768.0, Deg(90.0), 1.0, 8192.0);
     let display = glium::Display::new(wb, cb, &event_loop).unwrap();
     grab_cursor(display.gl_window().window());
 
     let level_render = Level::new(&display, bsp_path, wad_path.as_ref(), skybox_path);
+    if let Some((x, y, z)) = level_render.start_point() {
+        camera.set_position(x, y + CAMERA_OFFSET, z);
+    }
 
     let draw_params = glium::DrawParameters {
+        blend: glium::Blend::alpha_blending(),
+        backface_culling: glium::BackfaceCullingMode::CullCounterClockwise,
         depth: glium::Depth {
             test: glium::DepthTest::IfLessOrEqual,
             write: true,
