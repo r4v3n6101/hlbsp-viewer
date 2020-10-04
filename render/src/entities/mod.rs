@@ -4,7 +4,7 @@ mod parser;
 use lumps::parse_entities_str;
 pub use parser::{Entities, Entity};
 
-const INFO_PLAYER_START_CLASSNAME: &'static str = "info_player_start";
+const INFO_PLAYER_START_CLASSNAME: &str = "info_player_start";
 
 pub type Vec3 = (f32, f32, f32);
 

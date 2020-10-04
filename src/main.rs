@@ -75,7 +75,7 @@ fn start_window_loop<P: AsRef<Path>>(bsp_path: P, wad_path: &[P], skybox_path: O
     let display = glium::Display::new(wb, cb, &event_loop).unwrap();
     grab_cursor(display.gl_window().window());
 
-    let level_render = Level::new(&display, bsp_path, wad_path.as_ref(), skybox_path);
+    let level_render = Level::new(&display, bsp_path, wad_path, skybox_path);
     if let Some((x, y, z)) = level_render.start_point() {
         camera.set_position(x, y + CAMERA_OFFSET, z);
     }
