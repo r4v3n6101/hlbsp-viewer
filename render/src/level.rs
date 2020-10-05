@@ -10,7 +10,7 @@ use file::{
     wad::Archive,
 };
 use glium::{backend::Facade, DrawParameters, Surface};
-use log::{debug, info};
+use log::{debug, error, info};
 use std::{fs::read as read_file, path::Path};
 
 pub struct Level {
@@ -31,23 +31,30 @@ impl Level {
         let raw_map = RawMap::parse(&bsp_file).unwrap();
         let mut map_render = Map::new(facade, &raw_map);
 
-        wad_paths.iter().for_each(|path| {
+        for path in wad_paths {
+            if map_render.is_textures_loaded() {
+                break;
+            }
             let file = read_file(path).unwrap();
             let archive = Archive::parse(&file).unwrap();
             if let Some(file_name) = path.as_ref().file_name() {
                 debug!("Scanning {:?} for textures", file_name);
             }
             map_render.load_from_archive(facade, &archive);
-        });
+        }
 
         let entities = parse_entities(raw_map.lump_data(LumpType::Entities)).unwrap();
         let info_player_start = find_info_player_start(&entities);
         let start_point = info_player_start.and_then(get_start_point);
         let skybox = get_skyname(&entities).and_then(|skyname| {
-            info!("Map's skyname: {}", skyname);
-            skybox_path.map(|skybox_path| {
-                let cubemap = Cubemap::read(&skyname, skybox_path).unwrap();
-                Skybox::new(facade, &cubemap)
+            skybox_path.and_then(|skybox_path| {
+                if let Ok(cubemap) = Cubemap::read(&skyname, skybox_path) {
+                    info!("Skybox loaded: {}", skyname);
+                    Some(Skybox::new(facade, &cubemap))
+                } else {
+                    error!("Error loading skybox: {}", skyname);
+                    None
+                }
             })
         });
 

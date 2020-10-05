@@ -284,6 +284,10 @@ impl Map {
         texture
     }
 
+    pub fn is_textures_loaded(&self) -> bool {
+        self.textured_ibos.len() == self.textures.len()
+    }
+
     pub fn load_from_archive<F: ?Sized + Facade>(&mut self, facade: &F, archive: &Archive) {
         let present: HashSet<_> = self.textures.keys().cloned().collect();
         let required: HashSet<_> = self.textured_ibos.keys().cloned().collect();
