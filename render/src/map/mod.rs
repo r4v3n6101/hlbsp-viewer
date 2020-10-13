@@ -168,18 +168,13 @@ impl Map {
                 let ([mut min_u, mut min_v], [mut max_u, mut max_v]) =
                     (verts[0].tex_coords, verts[0].tex_coords);
 
-                min_u = min_u.floor();
-                min_v = min_v.floor();
-                max_u = max_u.floor();
-                max_v = max_v.floor();
-
                 for vert in &verts {
                     let [u, v] = vert.tex_coords;
-                    min_u = u.floor().min(min_u);
-                    max_u = u.floor().max(max_u);
+                    min_u = u.min(min_u);
+                    max_u = u.max(max_u);
 
-                    min_v = v.floor().min(min_v);
-                    max_v = v.floor().max(max_v);
+                    min_v = v.min(min_v);
+                    max_v = v.max(max_v);
                 }
 
                 let lightmap_size = [
@@ -191,7 +186,10 @@ impl Map {
                     let [s, t] = v.tex_coords;
 
                     v.lightmap_size = lightmap_size;
-                    v.light_tex_coords = [(s - min_u) / 16.0, (t - min_v) / 16.0];
+                    v.light_tex_coords = [
+                        (s.ceil() - min_u.floor()) / 16.0,
+                        (t.ceil() - min_v.floor()) / 16.0,
+                    ];
                 });
 
                 vbo_vertices.extend(verts);
