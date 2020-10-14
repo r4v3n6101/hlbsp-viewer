@@ -276,7 +276,7 @@ impl Map {
                 height: dims.1,
             };
             let pixels = miptex.pixels(i as usize).unwrap();
-            let image = RawImage2d::from_raw_rgba(pixels, dims);
+            let image = RawImage2d::from_raw_rgba_reversed(&pixels, dims);
             miplevel.write(rect, image);
         }
         texture
