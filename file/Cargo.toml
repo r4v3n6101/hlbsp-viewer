@@ -5,7 +5,7 @@ authors = ["r4v3n6101 <raven6107@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-nom = "*"
+nom = "5.1.2"
 arraylib = "*"
 
 [dependencies.image]
