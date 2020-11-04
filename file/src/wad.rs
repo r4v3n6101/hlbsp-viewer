@@ -41,7 +41,7 @@ impl<'a> Entry<'a> {
 
         let data_i = {
             if offset > file.len() {
-                return Err(nom::Err::Incomplete(nom::Needed::Size(offset))); // TODO : not verbose error
+                return Err(nom::Err::Incomplete(nom::Needed::new(offset))); // TODO : not verbose error
             }
             &file[offset..]
         };
@@ -73,7 +73,7 @@ impl<'a> Archive<'a> {
 
         let dir_i = {
             if dir_offset > file.len() {
-                return Err(nom::Err::Incomplete(nom::Needed::Size(dir_offset)));
+                return Err(nom::Err::Incomplete(nom::Needed::new(dir_offset)));
             }
             &file[dir_offset..]
         };

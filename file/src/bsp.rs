@@ -42,7 +42,7 @@ impl<'a> Lump<'a> {
             tuple((map(le_u32, |x| x as usize), map(le_u32, |x| x as usize)))(i)?;
         let lump_i = {
             if offset > file.len() {
-                return Err(nom::Err::Incomplete(nom::Needed::Size(offset))); // TODO : not verbose error
+                return Err(nom::Err::Incomplete(nom::Needed::new(offset))); // TODO : not verbose error
             }
             &file[offset..]
         };

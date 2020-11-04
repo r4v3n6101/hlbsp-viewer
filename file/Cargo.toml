@@ -1,11 +1,11 @@
 [package]
 name = "file"
-version = "0.2.3"
+version = "0.2.4"
 authors = ["r4v3n6101 <raven6107@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-nom = "5.1.2"
+nom = "*"
 arraylib = "*"
 
 [dependencies.image]
