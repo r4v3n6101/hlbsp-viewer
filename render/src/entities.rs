@@ -1,8 +1,7 @@
-mod lumps;
-mod parser;
-
-use lumps::parse_entities_str;
-pub use parser::{Entities, Entity};
+use file::{
+    bsp::lumps::parse_entities_str,
+    map::{Entities, Entity},
+};
 
 const INFO_PLAYER_START_CLASSNAME: &str = "info_player_start";
 

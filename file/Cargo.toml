@@ -1,12 +1,16 @@
 [package]
 name = "file"
-version = "0.2.4"
+version = "0.3.0"
 authors = ["r4v3n6101 <raven6107@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-nom = "*"
 arraylib = "*"
+
+[dependencies.nom]
+version = "*"
+default-features = false
+features = ["std"]
 
 [dependencies.image]
 version = "*"

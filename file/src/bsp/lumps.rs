@@ -1,6 +1,7 @@
-use super::miptex::MipTexture;
+use crate::miptex::MipTexture;
 use nom::{
-    combinator::map,
+    bytes::complete::take_until,
+    combinator::{map, map_res},
     multi::{count, many0},
     number::complete::{le_f32, le_i32, le_u16, le_u32, le_u8},
     sequence::tuple,
@@ -33,6 +34,11 @@ pub struct Model {
     pub origin: Vec3,
     pub face_id: usize,
     pub face_num: usize,
+}
+
+pub fn parse_entities_str(i: &[u8]) -> OnlyResult<&str> {
+    let (_, s) = map_res(take_until("\0"), std::str::from_utf8)(i)?;
+    Ok(s)
 }
 
 fn parse_vec3(i: &[u8]) -> ParseResult<Vec3> {
@@ -162,7 +168,7 @@ pub fn parse_textures(lump: &[u8]) -> OnlyResult<Vec<MipTexture>> {
             let offset = offset as usize;
             let mip_i = {
                 if offset > lump.len() {
-                    return Err(nom::Err::Incomplete(nom::Needed::Size(offset)));
+                    return Err(nom::Err::Incomplete(nom::Needed::new(offset)));
                 }
                 &lump[offset..]
             };

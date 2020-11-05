@@ -7,7 +7,7 @@ use nom::{
 };
 use std::iter::once;
 
-pub const MIP_NUM: usize = 4;
+const MIP_NUM: usize = 4;
 const NAME_LEN: usize = 16;
 const COLOR_TABLE_SIZE: usize = 256 * 3;
 
@@ -46,7 +46,7 @@ impl<'a> MipTexture<'a> {
                 let mip_offset = offsets[i];
                 let mip_i = {
                     if mip_offset > file.len() {
-                        return Err(nom::Err::Incomplete(nom::Needed::Size(mip_offset)));
+                        return Err(nom::Err::Incomplete(nom::Needed::new(mip_offset)));
                     }
                     &file[mip_offset..]
                 };
@@ -60,7 +60,7 @@ impl<'a> MipTexture<'a> {
                 + 2; // 2 is gap
             let color_table_i = {
                 if color_table_offset > file.len() {
-                    return Err(nom::Err::Incomplete(nom::Needed::Size(color_table_offset)));
+                    return Err(nom::Err::Incomplete(nom::Needed::new(color_table_offset)));
                     // TODO : not verbose error
                 }
                 &file[color_table_offset..]
@@ -77,6 +77,10 @@ impl<'a> MipTexture<'a> {
             color_indices,
             color_table,
         })
+    }
+
+    pub const fn layers() -> usize {
+        MIP_NUM
     }
 
     pub const fn name(&self) -> &str {

@@ -1,3 +1,5 @@
+pub mod lumps; // TODO
+
 use nom::{
     bytes::streaming::take,
     combinator::{map, verify},

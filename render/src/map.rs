@@ -1,10 +1,8 @@
-mod lumps;
-mod miptex;
-
 use cgmath::Matrix4;
 use elapsed::measure_time;
 use file::{
-    bsp::{LumpType, RawMap},
+    bsp::{lumps::*, LumpType, RawMap},
+    miptex::MipTexture,
     wad::Archive,
 };
 use glium::{
@@ -23,8 +21,6 @@ use glium::{
 };
 use itertools::Itertools;
 use log::{debug, info};
-use lumps::*;
-use miptex::{MipTexture, MIP_NUM};
 use std::{
     collections::{HashMap, HashSet},
     iter::Iterator,
@@ -217,8 +213,8 @@ impl Map {
         let (elapsed, program) = measure_time(|| {
             program!(facade,
                 140 => {
-                    vertex: include_str!("../../shaders/map/vert.glsl"),
-                    fragment: include_str!("../../shaders/map/frag.glsl"),
+                    vertex: include_str!("../shaders/map/vert.glsl"),
+                    fragment: include_str!("../shaders/map/frag.glsl"),
                 },
             )
             .unwrap()
@@ -260,7 +256,7 @@ impl Map {
     fn upload_miptex<F: ?Sized + Facade>(facade: &F, miptex: &MipTexture) -> Texture2d {
         let texture = Texture2d::empty_with_mipmaps(
             facade,
-            MipmapsOption::EmptyMipmapsMax((MIP_NUM - 1) as u32),
+            MipmapsOption::EmptyMipmapsMax((MipTexture::layers() - 1) as u32),
             miptex.main_width(),
             miptex.main_height(),
         )
