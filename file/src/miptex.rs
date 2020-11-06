@@ -1,8 +1,8 @@
 use nom::{
-    bytes::streaming::{take, take_until},
+    bytes::complete::{take, take_until},
     combinator::{map, map_res},
     multi::count,
-    number::streaming::le_u32,
+    number::complete::le_u32,
     sequence::tuple,
 };
 use std::iter::once;
@@ -44,12 +44,7 @@ impl<'a> MipTexture<'a> {
             let mut color_indices: [&[u8]; MIP_NUM] = [&[]; MIP_NUM];
             for i in 0..MIP_NUM {
                 let mip_offset = offsets[i];
-                let mip_i = {
-                    if mip_offset > file.len() {
-                        return Err(nom::Err::Incomplete(nom::Needed::new(mip_offset)));
-                    }
-                    &file[mip_offset..]
-                };
+                let (mip_i, _) = take(mip_offset)(file)?;
                 let (_, mip_indices) =
                     take((width as usize * height as usize) / (1 << (2 * i)))(mip_i)?;
                 color_indices[i] = mip_indices;
@@ -58,14 +53,7 @@ impl<'a> MipTexture<'a> {
             let color_table_offset = offsets[MIP_NUM - 1]
                 + (width as usize * height as usize) / (1 << (2 * (MIP_NUM - 1)))
                 + 2; // 2 is gap
-            let color_table_i = {
-                if color_table_offset > file.len() {
-                    return Err(nom::Err::Incomplete(nom::Needed::new(color_table_offset)));
-                    // TODO : not verbose error
-                }
-                &file[color_table_offset..]
-            };
-
+            let (color_table_i, _) = take(color_table_offset)(file)?;
             let (_, color_table) = take(COLOR_TABLE_SIZE)(color_table_i)?;
             (Some(color_indices), Some(color_table))
         };

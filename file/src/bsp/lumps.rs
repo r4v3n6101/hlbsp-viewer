@@ -1,6 +1,6 @@
 use crate::miptex::MipTexture;
 use nom::{
-    bytes::complete::take_until,
+    bytes::complete::{take, take_until},
     combinator::{map, map_res},
     multi::{count, many0},
     number::complete::{le_f32, le_i32, le_u16, le_u32, le_u8},
@@ -166,12 +166,7 @@ pub fn parse_textures(lump: &[u8]) -> OnlyResult<Vec<MipTexture>> {
         .into_iter()
         .map(|offset| {
             let offset = offset as usize;
-            let mip_i = {
-                if offset > lump.len() {
-                    return Err(nom::Err::Incomplete(nom::Needed::new(offset)));
-                }
-                &lump[offset..]
-            };
+            let (mip_i, _) = take(offset)(lump)?;
             MipTexture::parse(mip_i)
         })
         .collect()

@@ -1,8 +1,8 @@
 use nom::{
-    bytes::streaming::{tag, take, take_until},
+    bytes::complete::{tag, take, take_until},
     combinator::{map, map_res},
     multi::count,
-    number::streaming::{le_u16, le_u32, le_u8},
+    number::complete::{le_u16, le_u32, le_u8},
     sequence::tuple,
 };
 use std::{collections::HashMap, iter::Iterator};
@@ -39,12 +39,7 @@ impl<'a> Entry<'a> {
         ))(i)?;
         let (i, name) = take_cstr(i, NAME_LEN)?;
 
-        let data_i = {
-            if offset > file.len() {
-                return Err(nom::Err::Incomplete(nom::Needed::new(offset))); // TODO : not verbose error
-            }
-            &file[offset..]
-        };
+        let (data_i, _) = take(offset)(file)?;
         let (_, data) = take(disk_size)(data_i)?;
 
         Ok((i, (name, Self { etype, data })))
@@ -71,13 +66,7 @@ impl<'a> Archive<'a> {
             map(le_u32, |x| x as usize),
         ))(file)?;
 
-        let dir_i = {
-            if dir_offset > file.len() {
-                return Err(nom::Err::Incomplete(nom::Needed::new(dir_offset)));
-            }
-            &file[dir_offset..]
-        };
-
+        let (dir_i, _) = take(dir_offset)(file)?;
         let (_, entries) = map(count(|i| Entry::parse(i, file), dir_num), |x| {
             x.into_iter().collect()
         })(dir_i)?;

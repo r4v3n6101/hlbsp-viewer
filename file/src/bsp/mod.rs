@@ -1,10 +1,10 @@
 pub mod lumps; // TODO
 
 use nom::{
-    bytes::streaming::take,
+    bytes::complete::take,
     combinator::{map, verify},
     multi::count,
-    number::streaming::le_u32,
+    number::complete::le_u32,
     sequence::tuple,
 };
 
@@ -42,12 +42,7 @@ impl<'a> Lump<'a> {
     fn parse(i: &'a [u8], file: &'a [u8]) -> ParseResult<'a, Self> {
         let (i, (offset, size)) =
             tuple((map(le_u32, |x| x as usize), map(le_u32, |x| x as usize)))(i)?;
-        let lump_i = {
-            if offset > file.len() {
-                return Err(nom::Err::Incomplete(nom::Needed::new(offset))); // TODO : not verbose error
-            }
-            &file[offset..]
-        };
+        let (lump_i, _) = take(offset)(file)?;
         let (_, data) = take(size)(lump_i)?;
 
         Ok((i, Self { data }))
