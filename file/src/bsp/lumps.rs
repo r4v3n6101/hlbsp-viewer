@@ -1,3 +1,5 @@
+// TODO : Reformat to human-read structures
+
 use crate::miptex::MipTexture;
 use nom::{
     bytes::complete::{take, take_until},

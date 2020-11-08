@@ -1,6 +1,9 @@
 use arraylib::Array;
-use image::ImageResult;
-use std::path::Path;
+use image::{ImageError, ImageResult};
+use std::{
+    io::{Error as IOError, ErrorKind},
+    path::Path,
+};
 
 const EXTENSION: &str = "tga";
 const SIDES: [&str; 6] = ["rt", "lf", "up", "dn", "bk", "ft"];
@@ -20,7 +23,25 @@ impl Cubemap {
                 let file_path = path.as_ref().join(file_name);
                 let image = image::open(file_path)?.to_rgba();
                 if dimension == 0 {
-                    dimension = image.width(); // TODO : additional checks that it's square texture
+                    dimension = image.width();
+                } else if dimension != image.width() {
+                    return Err(ImageError::IoError(IOError::new(
+                        ErrorKind::InvalidData,
+                        format!(
+                            "Different dimension of texture. Got {}, expected {}.",
+                            image.width(),
+                            dimension
+                        ),
+                    )));
+                } else if image.width() != image.height() {
+                    return Err(ImageError::IoError(IOError::new(
+                        ErrorKind::InvalidData,
+                        format!(
+                            "Not square texture. Width {}, height {}.",
+                            image.width(),
+                            image.height()
+                        ),
+                    )));
                 }
                 Ok(image.into_raw())
             })
