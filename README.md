@@ -10,7 +10,7 @@ Build (`cargo build --release`) and run with `--help` or `-h` to get help info.
 - [x] **6 degree camera**: Works fine.
 - [x] **bsp lighting**: Works fine. Manual bilinear and nearest are supported.
 - [ ] **entities rendering**: Currently unimplemented.
-- [x] **skybox rendering**: Works, but need mechanism to get name inside bsp entities.
+- [x] **skybox rendering**: Works fine.
 
 ## Screenshots
 ![gasworks screenshot](screenshots/readme1.png)
