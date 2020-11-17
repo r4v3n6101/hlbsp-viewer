@@ -5,13 +5,13 @@ authors = ["r4v3n6101 <raven6107@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-structopt = "*"
-glium = "*"
+structopt = "0.3.20"
+glium = "0.28.0"
 render = { path = "render" }
-cgmath = "*"
+cgmath = "0.17.0"
 
 [dependencies.log]
-version = "*"
+version = "0.4.11"
 features = ["std", "max_level_debug", "release_max_level_info"]
 
 [workspace]
