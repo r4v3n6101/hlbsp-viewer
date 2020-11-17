@@ -1,5 +1,6 @@
 name: Build & lints
 on: 
+        pull_request:
         push:
                 tags:
                         - v*
