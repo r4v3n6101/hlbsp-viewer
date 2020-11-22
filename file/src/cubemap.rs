@@ -21,7 +21,7 @@ impl Cubemap {
             .map(|postfix| {
                 let file_name = format!("{}{}.{}", name.as_ref(), postfix, EXTENSION);
                 let file_path = path.as_ref().join(file_name);
-                let image = image::open(file_path)?.to_rgba();
+                let image = image::open(file_path)?.to_rgba8();
                 if dimension == 0 {
                     dimension = image.width();
                 } else if dimension != image.width() {
