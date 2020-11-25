@@ -213,8 +213,8 @@ impl Map {
         let (elapsed, program) = measure_time(|| {
             program!(facade,
                 140 => {
-                    vertex: include_str!("../shaders/map/vert.glsl"),
-                    fragment: include_str!("../shaders/map/frag.glsl"),
+                    vertex: include_str!("../../shaders/map/vert.glsl"),
+                    fragment: include_str!("../../shaders/map/frag.glsl"),
                 },
             )
             .unwrap()

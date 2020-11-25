@@ -126,8 +126,8 @@ impl Skybox {
         let (elapsed, program) = measure_time(|| {
             program!(facade,
                 140 => {
-                    vertex: include_str!("../shaders/skybox/vert.glsl"),
-                    fragment: include_str!("../shaders/skybox/frag.glsl"),
+                    vertex: include_str!("../../shaders/skybox/vert.glsl"),
+                    fragment: include_str!("../../shaders/skybox/frag.glsl"),
                 }
             )
             .unwrap()

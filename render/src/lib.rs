@@ -1,6 +1,3 @@
-mod entities;
 mod level;
-mod map;
-mod skybox;
 
-pub use level::Level;
+pub use level::Level; // to reduce repetition of names

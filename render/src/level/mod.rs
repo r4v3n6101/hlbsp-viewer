@@ -1,8 +1,7 @@
-use crate::{
-    entities::{find_info_player_start, get_skyname, get_start_point, parse_entities, Vec3},
-    map::Map,
-    skybox::Skybox,
-};
+mod entities;
+mod map;
+mod skybox;
+
 use cgmath::Matrix4;
 use file::{
     bsp::{LumpType, RawMap},
@@ -12,6 +11,11 @@ use file::{
 use glium::{backend::Facade, DrawParameters, Surface};
 use log::{debug, error, info};
 use std::{fs::read as read_file, path::Path};
+use {
+    entities::{find_info_player_start, get_skyname, get_start_point, parse_entities, Vec3},
+    map::Map,
+    skybox::Skybox,
+};
 
 pub struct Level {
     start_point: Option<Vec3>,
