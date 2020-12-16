@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 structopt = "0.3.20"
-glium = "0.28.0"
+glium = "0.29.0"
 render = { path = "render" }
 cgmath = "0.17.0"
 
