@@ -85,7 +85,7 @@ impl Camera {
     }
 
     pub fn view(&self) -> Matrix4<Scal> {
-        Matrix4::look_at(self.position, self.position + self.forward(), Self::up())
+        Matrix4::look_at_rh(self.position, self.position + self.forward(), Self::up())
     }
 }
 
