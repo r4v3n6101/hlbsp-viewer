@@ -1,0 +1,12 @@
+[package]
+name = "gs_files"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+goldsrc-rs = "0.8"
+bevy_reflect = "0.9"
+bevy_app = "0.9"
+bevy_asset = "0.9"
+bevy_render = "0.9"
+bevy_log = "0.9"
