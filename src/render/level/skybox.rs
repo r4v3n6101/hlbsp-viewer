@@ -1,6 +1,6 @@
-use cgmath::{Matrix3, Matrix4};
 use elapsed::measure_time;
 use file::cubemap::Cubemap as CubemapFile;
+use glam::{Mat3, Mat4};
 use glium::{
     backend::Facade,
     framebuffer::SimpleFrameBuffer,
@@ -11,9 +11,9 @@ use glium::{
     uniform,
     uniforms::MagnifySamplerFilter,
     vertex::{VertexBuffer, VertexBufferAny},
-    BlitTarget, DrawParameters, Program, Surface,
+    BlitTarget, DrawParameters, Program, Surface, Frame,
 };
-use log::debug;
+use tracing::debug;
 
 #[derive(Copy, Clone)]
 struct Vertex {
@@ -126,8 +126,8 @@ impl Skybox {
         let (elapsed, program) = measure_time(|| {
             program!(facade,
                 140 => {
-                    vertex: include_str!("../../shaders/skybox/vert.glsl"),
-                    fragment: include_str!("../../shaders/skybox/frag.glsl"),
+                    vertex: include_str!("../shaders/skybox/vert.glsl"),
+                    fragment: include_str!("../shaders/skybox/frag.glsl"),
                 }
             )
             .unwrap()
@@ -169,23 +169,23 @@ impl Skybox {
         }
     }
 
-    pub fn render<S: Surface>(
+    pub fn render(
         &self,
-        surface: &mut S,
-        projection: Matrix4<f32>,
-        view: Matrix4<f32>,
+        frame: &mut Frame,
+        projection: Mat4,
+        view: Mat4,
         draw_params: &DrawParameters,
     ) {
-        let view = Matrix3::from_cols(view.x.truncate(), view.y.truncate(), view.z.truncate());
-        let view = Matrix4::from(view);
+        let view = Mat3::from_cols(view.x_axis.truncate(), view.y_axis.truncate(), view.z_axis.truncate());
+        let view = Mat4::from_mat3(view);
         let mvp = projection * view;
-        let mvp: [[f32; 4]; 4] = mvp.into();
+        let mvp = mvp.to_cols_array_2d();
 
         let uniforms = uniform! {
             mvp: mvp,
             cubetex: self.cubemap.sampled().magnify_filter(MagnifySamplerFilter::Linear),
         };
-        surface
+        frame
             .draw(&self.vbo, &self.ibo, &self.program, &uniforms, draw_params)
             .unwrap();
     }

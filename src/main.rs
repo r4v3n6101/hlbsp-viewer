@@ -1,67 +1,59 @@
-mod support;
+mod camera;
+mod render;
 
-use cgmath::Deg;
-use glium::{glutin, Surface};
+use glium::{
+    glutin::{self, event::DeviceEvent},
+    Surface,
+};
 use render::Level;
 use std::path::{Path, PathBuf};
-use structopt::StructOpt;
-use support::{init_logger, Camera};
+use clap::Parser;
+use camera::Camera;
 
 const MOVE_SPEED: f32 = 100.0;
 const CAMERA_OFFSET: f32 = 64.0;
 // Safe, because there's no multiple thread accessing this
 static mut MOUSE_GRABBED: bool = true;
 
-#[derive(Debug, StructOpt)]
-#[structopt(
-    name = "hlbsp_viewer",
-    about = "A program allows you to view hlbsp maps (bsp v30)"
-)]
-struct Opt {
-    #[structopt(short, long = "bsp", parse(from_os_str), help = "Path to bsp map")]
+/// A program allows you to view hlbsp maps (bsp v30)
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Path to bsp map
+    #[arg(short, long)]
     bsp_path: PathBuf,
-    #[structopt(
-        short,
-        long = "wad",
-        parse(from_os_str),
-        help = "Path to wad files which are required to load textures"
-    )]
+    /// Path to wad files which are required to load textures
+    #[arg(short, long)]
     wad_path: Vec<PathBuf>,
-    #[structopt(
-        short,
-        long = "skybox",
-        parse(from_os_str),
-        help = "Path to directory stores skybox textures"
-    )]
+    /// Path to directory stores skybox textures
+    #[arg(short, long)]
     skybox_path: Option<PathBuf>,
 }
 
 fn main() {
-    init_logger().unwrap();
-    let opt = Opt::from_args();
-    start_window_loop(opt.bsp_path, &opt.wad_path, opt.skybox_path);
-}
+    let subscriber = tracing_subscriber::FmtSubscriber::builder()
+        .with_max_level(tracing::Level::DEBUG)
+        .finish();
 
-fn get_window_center(window: &glutin::window::Window) -> glutin::dpi::PhysicalPosition<f64> {
-    let out_pos = window.outer_position().unwrap();
-    let out_size = window.outer_size();
-    glutin::dpi::PhysicalPosition {
-        x: f64::from(out_pos.x + out_size.width as i32 / 2),
-        y: f64::from(out_pos.y + out_size.height as i32 / 2),
-    }
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+
+    let args = Args::parse();
+
+    start_window_loop(args.bsp_path, &args.wad_path, args.skybox_path);
 }
 
 fn grab_cursor(window: &glutin::window::Window) {
     window.set_cursor_visible(false);
-    window.set_cursor_grab(true).unwrap();
     window
-        .set_cursor_position(get_window_center(window))
+        .set_cursor_grab(glutin::window::CursorGrabMode::Locked)
         .unwrap();
 }
 
 fn ungrab_cursor(window: &glutin::window::Window) {
     window.set_cursor_visible(true);
-    window.set_cursor_grab(false).unwrap();
+    window
+        .set_cursor_grab(glutin::window::CursorGrabMode::None)
+        .unwrap();
 }
 
 fn start_window_loop<P: AsRef<Path>>(bsp_path: P, wad_path: &[P], skybox_path: Option<P>) {
@@ -71,7 +63,7 @@ fn start_window_loop<P: AsRef<Path>>(bsp_path: P, wad_path: &[P], skybox_path: O
         .with_inner_size(glutin::dpi::LogicalSize::new(1024.0, 768.0));
     let cb = glutin::ContextBuilder::new();
 
-    let mut camera = Camera::new(1024.0, 768.0, Deg(90.0), 1.0, 8192.0);
+    let mut camera = Camera::new(1024.0, 768.0, 90.0f32.to_radians(), 1.0, 8192.0);
     let display = glium::Display::new(wb, cb, &event_loop).unwrap();
     grab_cursor(display.gl_window().window());
 
@@ -101,15 +93,23 @@ fn start_window_loop<P: AsRef<Path>>(bsp_path: P, wad_path: &[P], skybox_path: O
             } => *control_flow = process_window(window, &wevent, &mut camera),
             glutin::event::Event::MainEventsCleared => window.request_redraw(),
             glutin::event::Event::RedrawRequested(_) => {
-                let mut target = display.draw();
+                let mut frame = display.draw();
 
                 let projection = camera.perspective();
                 let view = camera.view();
 
-                target.clear_color_and_depth((1.0, 1.0, 0.0, 1.0), 1.0);
-                level_render.render(&mut target, projection, view, &draw_params);
-                target.finish().unwrap();
+                frame.clear_color_and_depth((1.0, 1.0, 0.0, 1.0), 1.0);
+                level_render.render(&mut frame, projection, view, &draw_params);
+                frame.finish().unwrap();
             }
+            glutin::event::Event::DeviceEvent {
+                event: DeviceEvent::MouseMotion { delta },
+                ..
+            } => unsafe {
+                if MOUSE_GRABBED {
+                    camera.rotate_by((-delta.1 * 0.1) as f32, (delta.0 * 0.1) as f32, 0.0);
+                }
+            },
             _ => {
                 let next_frame_time =
                     std::time::Instant::now() + std::time::Duration::from_nanos(16_666_667);
@@ -151,24 +151,8 @@ fn process_window(
             }
             glutin::event_loop::ControlFlow::Poll
         }
-        glutin::event::WindowEvent::CursorMoved {
-            position: glutin::dpi::PhysicalPosition { x, y },
-            ..
-        } => {
-            unsafe {
-                if MOUSE_GRABBED {
-                    let mouse_pos = get_window_center(window);
-                    let (dx, dy) = (x - mouse_pos.x, y - mouse_pos.y);
-                    window
-                        .set_cursor_position(get_window_center(window))
-                        .unwrap();
-                    camera.rotate_by((-dy * 0.1) as f32, (dx * 0.1) as f32, 0.0);
-                }
-            }
-            glutin::event_loop::ControlFlow::Poll
-        }
         glutin::event::WindowEvent::Resized(glutin::dpi::PhysicalSize { width, height }) => {
-            camera.aspect_ratio = (*width as f32) / (*height as f32);
+            camera.aspect = (*width as f32) / (*height as f32);
             glutin::event_loop::ControlFlow::Poll
         }
         glutin::event::WindowEvent::CloseRequested => glutin::event_loop::ControlFlow::Exit,

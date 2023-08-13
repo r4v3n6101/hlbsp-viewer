@@ -2,17 +2,17 @@
 name = "file"
 version = "0.3.3"
 authors = ["r4v3n6101 <raven6107@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 arraylib = "0.3.0"
 
 [dependencies.nom]
-version = "7.0.0"
+version = "7.1.3"
 default-features = false
 features = ["std"]
 
 [dependencies.image]
-version = "0.24.1"
+version = "0.24.7"
 default-features = false
 features = ["tga"]

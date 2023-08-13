@@ -2,14 +2,14 @@ mod entities;
 mod map;
 mod skybox;
 
-use cgmath::Matrix4;
 use file::{
     bsp::{LumpType, RawMap},
     cubemap::Cubemap,
     wad::Archive,
 };
-use glium::{backend::Facade, DrawParameters, Surface};
-use log::{debug, error, info};
+use glam::Mat4;
+use glium::{backend::Facade, DrawParameters, Frame};
+use tracing::{debug, error, info};
 use std::{fs::read as read_file, path::Path};
 use {
     entities::{find_info_player_start, get_skyname, get_start_point, parse_entities, Vec3},
@@ -73,17 +73,17 @@ impl Level {
         self.start_point
     }
 
-    pub fn render<S: Surface>(
+    pub fn render(
         &self,
-        surface: &mut S,
-        projection: Matrix4<f32>,
-        view: Matrix4<f32>,
+        frame: &mut Frame,
+        projection: Mat4,
+        view: Mat4,
         draw_params: &DrawParameters,
     ) {
         if let Some(skybox) = &self.skybox {
-            skybox.render(surface, projection, view, draw_params);
+            skybox.render(frame, projection, view, draw_params);
         }
         self.map_render
-            .render(surface, projection, view, draw_params);
+            .render(frame, projection, view, draw_params);
     }
 }

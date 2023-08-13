@@ -1,10 +1,10 @@
-use cgmath::Matrix4;
 use elapsed::measure_time;
 use file::{
     bsp::{lumps::*, LumpType, RawMap},
     miptex::MipTexture,
     wad::Archive,
 };
+use glam::Mat4;
 use glium::{
     backend::Facade,
     implement_vertex,
@@ -17,10 +17,10 @@ use glium::{
     uniform,
     uniforms::MinifySamplerFilter,
     vertex::{VertexBuffer, VertexBufferAny},
-    DrawParameters, Program, Rect, Surface,
+    DrawParameters, Program, Rect, Surface, Frame,
 };
 use itertools::Itertools;
-use log::{debug, info};
+use tracing::{debug, info};
 use std::{
     collections::{HashMap, HashSet},
     iter::Iterator,
@@ -213,8 +213,8 @@ impl Map {
         let (elapsed, program) = measure_time(|| {
             program!(facade,
                 140 => {
-                    vertex: include_str!("../../shaders/map/vert.glsl"),
-                    fragment: include_str!("../../shaders/map/frag.glsl"),
+                    vertex: include_str!("../shaders/map/vert.glsl"),
+                    fragment: include_str!("../shaders/map/frag.glsl"),
                 },
             )
             .unwrap()
@@ -302,16 +302,16 @@ impl Map {
         self.textures.extend(loaded);
     }
 
-    pub fn render<S: Surface>(
+    pub fn render(
         &self,
-        surface: &mut S,
-        projection: Matrix4<f32>,
-        view: Matrix4<f32>,
+        frame: &mut Frame,
+        projection: Mat4,
+        view: Mat4,
         draw_params: &DrawParameters,
     ) {
         let lightmap = &self.lightmap;
         let mvp = projection * view;
-        let mvp: [[f32; 4]; 4] = mvp.into();
+        let mvp = mvp.to_cols_array_2d();
         self.textured_ibos.iter().for_each(|(tex, ibo)| {
             if let Some(colormap) = self.textures.get(tex) {
                 let uniforms = uniform! {
@@ -320,7 +320,7 @@ impl Map {
                     colormap: colormap.sampled().minify_filter(MinifySamplerFilter::LinearMipmapNearest),
                     lightmap: lightmap,
                 };
-                surface
+                frame
                     .draw(&self.vbo, ibo, &self.program, &uniforms, draw_params)
                     .unwrap();
             }
