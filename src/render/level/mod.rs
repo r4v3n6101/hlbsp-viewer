@@ -2,17 +2,15 @@ mod entities;
 mod map;
 mod skybox;
 
-use file::{
-    bsp::{LumpType, RawMap},
-    cubemap::Cubemap,
-    wad::Archive,
-};
 use glam::Mat4;
-use glium::{backend::Facade, DrawParameters, Frame};
+use glium::{Display, DrawParameters, Frame};
+use std::{fs, io::Cursor};
 use tracing::{debug, error, info};
-use std::{fs::read as read_file, path::Path};
+
+use crate::{Args, cubemap::read_cubemap};
+use anyhow::Result;
 use {
-    entities::{find_info_player_start, get_skyname, get_start_point, parse_entities, Vec3},
+    entities::{find_info_player_start, get_skyname, get_start_point, Vec3},
     map::Map,
     skybox::Skybox,
 };
@@ -24,37 +22,32 @@ pub struct Level {
 }
 
 impl Level {
-    pub fn new<F: ?Sized + Facade, P: AsRef<Path>>(
-        facade: &F,
-        bsp_path: P,
-        wad_paths: &[P],
-        skybox_path: Option<P>,
-    ) -> Self {
-        // TODO : remove unwraps
-        let bsp_file = read_file(bsp_path).unwrap();
-        let raw_map = RawMap::parse(&bsp_file).unwrap();
-        let mut map_render = Map::new(facade, &raw_map);
+    pub fn new(display: &Display, args: &Args) -> Result<Self> {
+        let bsp_file = fs::read(&args.bsp_path)?;
+        let reader = Cursor::new(bsp_file);
+        let bsp = goldsrc_rs::bsp(reader)?;
+        let mut map_render = Map::new(display, &bsp);
 
-        for path in wad_paths {
+        for path in &args.wad_paths {
             if map_render.is_textures_loaded() {
                 break;
             }
-            let file = read_file(path).unwrap();
-            let archive = Archive::parse(&file).unwrap();
-            if let Some(file_name) = path.as_ref().file_name() {
+            let file = fs::read(path)?;
+            let reader = Cursor::new(file);
+            let archive = goldsrc_rs::wad(reader)?;
+            if let Some(file_name) = &path.file_name() {
                 debug!("Scanning {:?} for textures", file_name);
             }
-            map_render.load_from_archive(facade, &archive);
+            map_render.load_from_archive(display, &archive);
         }
 
-        let entities = parse_entities(raw_map.lump_data(LumpType::Entities)).unwrap();
-        let info_player_start = find_info_player_start(&entities);
+        let info_player_start = find_info_player_start(&bsp.entities);
         let start_point = info_player_start.and_then(get_start_point);
-        let skybox = get_skyname(&entities).and_then(|skyname| {
-            skybox_path.and_then(|skybox_path| {
-                if let Ok(cubemap) = Cubemap::read(&skyname, skybox_path) {
+        let skybox = get_skyname(&bsp.entities).and_then(|skyname| {
+            args.skybox_path.clone().and_then(|skybox_path| {
+                if let Ok(cubemap) = read_cubemap(&skyname, skybox_path) {
                     info!("Skybox loaded: {}", skyname);
-                    Some(Skybox::new(facade, &cubemap))
+                    Some(Skybox::new(display, &cubemap))
                 } else {
                     error!("Error loading skybox: {}", skyname);
                     None
@@ -62,11 +55,11 @@ impl Level {
             })
         });
 
-        Self {
+        Ok(Self {
             start_point,
             map_render,
             skybox,
-        }
+        })
     }
 
     pub const fn start_point(&self) -> Option<Vec3> {
@@ -83,7 +76,6 @@ impl Level {
         if let Some(skybox) = &self.skybox {
             skybox.render(frame, projection, view, draw_params);
         }
-        self.map_render
-            .render(frame, projection, view, draw_params);
+        self.map_render.render(frame, projection, view, draw_params);
     }
 }

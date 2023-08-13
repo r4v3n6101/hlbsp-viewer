@@ -1,28 +1,19 @@
-use file::{
-    bsp::lumps::parse_entities_str,
-    map::{Entities, Entity},
-};
+use goldsrc_rs::map::{Entities, Entity};
 
 const INFO_PLAYER_START_CLASSNAME: &str = "info_player_start";
 
 pub type Vec3 = (f32, f32, f32);
 
-pub fn parse_entities(i: &[u8]) -> Option<Entities> {
-    let s = parse_entities_str(i).ok()?; // TODO : do not ok
-    Entities::parse(s).ok() // TODO : same as above
-}
-
 pub fn get_skyname(entities: &Entities) -> Option<String> {
     entities
-        .entities()
         .iter()
-        .find_map(|e| e.properties().get("skyname"))
+        .find_map(|e| e.get("skyname"))
         .map(|e| e.to_string())
 }
 
-pub fn find_info_player_start<'a>(entities: &'a Entities) -> Option<&'a Entity<'a>> {
-    entities.entities().iter().find(|e| {
-        e.properties()
+pub fn find_info_player_start(entities: &Entities) -> Option<&Entity> {
+    entities.iter().find(|e| {
+        e
             .get("classname")
             .filter(|&classname| classname == &INFO_PLAYER_START_CLASSNAME)
             .is_some()
@@ -36,7 +27,6 @@ fn parse_vector3(s: &str) -> Option<Vec3> {
 
 pub fn get_start_point(entity: &Entity) -> Option<Vec3> {
     entity
-        .properties()
         .get("origin")
         .and_then(|o| parse_vector3(o))
 }

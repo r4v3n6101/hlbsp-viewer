@@ -1,5 +1,5 @@
 use elapsed::measure_time;
-use file::cubemap::Cubemap as CubemapFile;
+use crate::cubemap::Cubemap as CubemapFile;
 use glam::{Mat3, Mat4};
 use glium::{
     backend::Facade,
@@ -134,8 +134,8 @@ impl Skybox {
         });
         debug!("Skybox shader was loaded in {}", elapsed);
 
-        let dimension = cubemap_file.dimension();
-        let sides = cubemap_file.sides();
+        let dimension = cubemap_file.dimension;
+        let sides = &cubemap_file.sides;
 
         let cubemap = Cubemap::empty(facade, dimension).unwrap();
         let blit_rect = BlitTarget {

@@ -1,9 +1,4 @@
 use elapsed::measure_time;
-use file::{
-    bsp::{lumps::*, LumpType, RawMap},
-    miptex::MipTexture,
-    wad::Archive,
-};
 use glam::Mat4;
 use glium::{
     backend::Facade,
@@ -17,14 +12,20 @@ use glium::{
     uniform,
     uniforms::MinifySamplerFilter,
     vertex::{VertexBuffer, VertexBufferAny},
-    DrawParameters, Program, Rect, Surface, Frame,
+    DrawParameters, Frame, Program, Rect, Surface,
+};
+use goldsrc_rs::{
+    bsp::{Level, TextureInfo},
+    texture::MipTexture,
+    wad::{Archive, Content},
+    SmolStr,
 };
 use itertools::Itertools;
-use tracing::{debug, info};
 use std::{
     collections::{HashMap, HashSet},
-    iter::Iterator,
+    iter::{Iterator, once},
 };
+use tracing::{debug, info};
 
 const TRANSPARENT_TEXTURES: [&str; 2] = ["sky", "aaatrigger"];
 
@@ -49,11 +50,11 @@ implement_vertex!(
 );
 
 #[inline]
-fn calculate_uvs(vertex: &Vec3, texinfo: &TexInfo) -> [f32; 2] {
-    let dot_product = |a: &Vec3, b: &Vec3| a.0 * b.0 + a.1 * b.1 + a.2 * b.2;
+fn calculate_uvs(vertex: &[f32; 3], texinfo: &TextureInfo) -> [f32; 2] {
+    let dot_product = |a: &[f32; 3], b: &[f32; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
     [
-        dot_product(vertex, &texinfo.vs) + texinfo.ss,
-        dot_product(vertex, &texinfo.vt) + texinfo.st,
+        dot_product(vertex, &texinfo.s) + texinfo.s_shift,
+        dot_product(vertex, &texinfo.t) + texinfo.t_shift,
     ]
 }
 
@@ -72,48 +73,37 @@ fn triangulate(vertices: Vec<usize>) -> Vec<usize> {
 pub struct Map {
     origin: [f32; 3],
     vbo: VertexBufferAny,
-    textured_ibos: HashMap<String, IndexBufferAny>, // lowercase
-    textures: HashMap<String, Texture2d>,           // lowercase
+    textured_ibos: HashMap<SmolStr, IndexBufferAny>, // lowercase
+    textures: HashMap<SmolStr, Texture2d>,           // lowercase
     lightmap: BufferTexture<[u8; 4]>,
     program: Program,
 }
 
 impl Map {
-    pub fn new<F: ?Sized + Facade>(facade: &F, map: &RawMap) -> Self {
-        let vertices = parse_vertices(map.lump_data(LumpType::Vertices)).unwrap();
-        let edges = parse_edges(map.lump_data(LumpType::Edges)).unwrap();
-        let surfedges = parse_surfedges(map.lump_data(LumpType::Surfegdes)).unwrap();
-        let normals = parse_normals_from_planes(map.lump_data(LumpType::Planes)).unwrap();
-        let faces = parse_faces(map.lump_data(LumpType::Faces)).unwrap();
-        let lightmap = map.lump_data(LumpType::Lighting);
-        let texinfos = parse_texinfos(map.lump_data(LumpType::TexInfo)).unwrap();
-        let textures = parse_textures(map.lump_data(LumpType::Textures)).unwrap();
-        let models = parse_models(map.lump_data(LumpType::Models)).unwrap();
+    pub fn new<F: ?Sized + Facade>(facade: &F, bsp: &Level) -> Self {
+        let root_model = &bsp.models[0];
 
-        let root_model = &models[0];
+        let origin = root_model.origin;
 
-        let origin = {
-            let o = root_model.origin;
-            [o.0, o.1, o.2]
-        };
-
-        let vbo_size = faces
+        let vbo_size = bsp
+            .faces
             .iter()
-            .skip(root_model.face_id)
-            .take(root_model.face_num)
-            .map(|f| f.surfedge_num)
+            .skip(root_model.first_face_id as usize)
+            .take(root_model.faces_num as usize)
+            .map(|f| f.surfedges_num as usize)
             .sum();
         let mut vbo_vertices = Vec::with_capacity(vbo_size);
         let mut loaded_textures = HashMap::new();
 
-        let textured_ibos: HashMap<_, _> = faces
+        let textured_ibos: HashMap<_, _> = bsp
+            .faces
             .iter()
-            .skip(root_model.face_id)
-            .take(root_model.face_num)
+            .skip(root_model.first_face_id as usize)
+            .take(root_model.faces_num as usize)
             .filter_map(|f| {
-                let texinfo = &texinfos[f.texinfo_id];
-                let texture = &textures[texinfo.texture_id];
-                let tex_name = texture.name().to_string();
+                let texinfo = &bsp.texture_infos[f.texture_info_id as usize];
+                let texture = &bsp.textures[texinfo.texture_id as usize];
+                let tex_name = texture.name.to_owned();
 
                 if TRANSPARENT_TEXTURES
                     .iter()
@@ -122,7 +112,7 @@ impl Map {
                     return None;
                 }
 
-                if !texture.is_empty() && !loaded_textures.contains_key(&tex_name) {
+                if texture.data.is_some() && !loaded_textures.contains_key(&tex_name) {
                     let (elapsed, ()) = measure_time(|| {
                         loaded_textures
                             .insert(tex_name.clone(), Self::upload_miptex(facade, texture));
@@ -130,29 +120,30 @@ impl Map {
                     debug!("Load intern miptex `{}` in {}", &tex_name, elapsed);
                 }
 
-                let n = &normals[f.plane_id];
-                let normal = if f.side {
-                    [n.0, n.1, n.2]
+                let n = &bsp.planes[f.plane_id as usize].normal;
+                let normal = if f.plane_side != 0 {
+                    *n
                 } else {
-                    [-n.0, -n.1, -n.2]
+                    [-n[0], -n[1], -n[2]]
                 };
 
                 let begin = vbo_vertices.len();
-                let lightmap_offset = f.lightmap;
-                let mut verts = surfedges
+                let lightmap_offset = f.lightmap_offset;
+                let mut verts = bsp
+                    .surfedges
                     .iter()
-                    .skip(f.surfedge_id)
-                    .take(f.surfedge_num)
+                    .skip(f.first_surfedge_id as usize)
+                    .take(f.surfedges_num as usize)
                     .map(|&s| {
                         let i = if s < 0 {
-                            edges[-s as usize].1
+                            bsp.edges[-s as usize].1
                         } else {
-                            edges[s as usize].0
+                            bsp.edges[s as usize].0
                         } as usize;
-                        &vertices[i]
+                        &bsp.vertices[i]
                     })
                     .map(move |v| Vertex {
-                        position: [v.0, v.1, v.2],
+                        position: *v,
                         tex_coords: calculate_uvs(&v, texinfo),
                         light_tex_coords: [0.0, 0.0],
                         lightmap_offset: (lightmap_offset / 3) as u32,
@@ -222,7 +213,8 @@ impl Map {
         debug!("Map shader was loaded in {}", elapsed);
 
         let (elapsed, lightmap) = measure_time(|| {
-            let lightmap = lightmap
+            let lightmap = bsp
+                .lighting
                 .chunks(3)
                 .filter_map(|rgb| {
                     if let [r, g, b] = rgb {
@@ -256,9 +248,9 @@ impl Map {
     fn upload_miptex<F: ?Sized + Facade>(facade: &F, miptex: &MipTexture) -> Texture2d {
         let texture = Texture2d::empty_with_mipmaps(
             facade,
-            MipmapsOption::EmptyMipmapsMax((MipTexture::layers() - 1) as u32),
-            miptex.main_width(),
-            miptex.main_height(),
+            MipmapsOption::EmptyMipmapsMax(3 as u32),
+            miptex.width,
+            miptex.height,
         )
         .unwrap();
 
@@ -271,7 +263,7 @@ impl Map {
                 width: dims.0,
                 height: dims.1,
             };
-            let pixels = miptex.pixels(i as usize).unwrap();
+            let pixels = miptex_pixels(&miptex, i as usize).unwrap();
             let image = RawImage2d::from_raw_rgba_reversed(&pixels, dims);
             miplevel.write(rect, image);
         }
@@ -288,10 +280,13 @@ impl Map {
         let loaded = required.difference(&present).cloned().filter_map(|name| {
             let (elapsed, tex2d) = measure_time(|| {
                 let entry = archive
-                    .get_by_name(name.to_ascii_uppercase())
-                    .or_else(|| archive.get_by_name(name.to_ascii_lowercase()))?;
-                let miptex = MipTexture::parse(entry.data()).ok()?;
-                Some(Self::upload_miptex(facade, &miptex))
+                    .get(&SmolStr::new_inline(&name.to_ascii_uppercase()))
+                    .or_else(|| archive.get(&SmolStr::new_inline(&name.to_ascii_lowercase())))?;
+                if let &Content::MipTexture(mip_texture) = &entry {
+                    Some(Self::upload_miptex(facade, &mip_texture))
+                } else {
+                    None
+                }
             });
             if tex2d.is_some() {
                 debug!("Load extern miptex `{}` in {}", &name, elapsed);
@@ -326,4 +321,21 @@ impl Map {
             }
         });
     }
+}
+
+fn miptex_pixels(miptex: &MipTexture, mip_level: usize) -> Option<Vec<u8>> {
+    let color_table = &miptex.data.as_ref().unwrap().palette;
+    Some(
+        miptex.data.as_ref().unwrap().indices[mip_level]
+            .iter()
+            .map(|&i| i as usize)
+            .flat_map(|i| {
+                let r = color_table[i][0];
+                let g = color_table[i][1];
+                let b = color_table[i][2];
+                let a = if r < 30 && g < 30 && b > 125 { 0 } else { 255 };
+                once(r).chain(once(g)).chain(once(b)).chain(once(a))
+            })
+            .collect(),
+    )
 }

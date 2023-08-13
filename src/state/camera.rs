@@ -1,5 +1,6 @@
+use glam::{Mat4, Quat, Vec3};
+use glium::glutin;
 use std::f32::consts::FRAC_PI_2;
-use glam::{Vec3, Quat, Mat4};
 
 const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 
@@ -10,16 +11,11 @@ pub struct Camera {
     pub z_far: f32,
     pub position: Vec3,
     pub rotation: Quat,
+    speed: f32,
 }
 
 impl Camera {
-    pub fn new(
-        width: f32,
-        height: f32,
-        fov: f32,
-        z_near: f32,
-        z_far: f32,
-    ) -> Self {
+    pub fn new(width: f32, height: f32, fov: f32, z_near: f32, z_far: f32, speed: f32) -> Self {
         Self {
             aspect: width / height,
             fov,
@@ -27,6 +23,7 @@ impl Camera {
             z_far,
             position: Vec3::ZERO,
             rotation: Quat::IDENTITY,
+            speed,
         }
     }
 
@@ -61,20 +58,39 @@ impl Camera {
         self.position.z = z;
     }
 
-    pub fn move_forward(&mut self, speed: f32) {
-        self.position += self.forward() * speed;
+    fn move_forward(&mut self) {
+        self.position += self.forward() * self.speed;
     }
 
-    pub fn move_back(&mut self, speed: f32) {
-        self.move_forward(-speed);
+    fn move_back(&mut self) {
+        self.position -= self.forward() * self.speed;
     }
 
-    pub fn move_right(&mut self, speed: f32) {
-        self.position += self.right() * speed;
+    fn move_right(&mut self) {
+        self.position += self.right() * self.speed;
     }
 
-    pub fn move_left(&mut self, speed: f32) {
-        self.move_right(-speed);
+    fn move_left(&mut self) {
+        self.position -= self.right() * self.speed;
+    }
+
+    pub fn process_events(&mut self, event: &glium::glutin::event::WindowEvent) {
+        match event {
+            glutin::event::WindowEvent::KeyboardInput { input, .. } => {
+                if input.state == glutin::event::ElementState::Pressed {
+                    if let Some(virt_keycode) = input.virtual_keycode {
+                        match virt_keycode {
+                            glutin::event::VirtualKeyCode::W => self.move_forward(),
+                            glutin::event::VirtualKeyCode::S => self.move_back(),
+                            glutin::event::VirtualKeyCode::A => self.move_left(),
+                            glutin::event::VirtualKeyCode::D => self.move_right(),
+                            _ => (),
+                        }
+                    }
+                }
+            }
+            _ => (),
+        }
     }
 
     pub fn perspective(&self) -> Mat4 {
