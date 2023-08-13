@@ -1,7 +1,6 @@
 use elapsed::measure_time;
 use glam::Mat4;
 use glium::{
-    backend::Facade,
     implement_vertex,
     index::{IndexBuffer, IndexBufferAny, PrimitiveType},
     program,
@@ -12,7 +11,7 @@ use glium::{
     uniform,
     uniforms::MinifySamplerFilter,
     vertex::{VertexBuffer, VertexBufferAny},
-    DrawParameters, Frame, Program, Rect, Surface,
+    Display, DrawParameters, Frame, Program, Rect, Surface,
 };
 use goldsrc_rs::{
     bsp::{Level, TextureInfo},
@@ -23,7 +22,7 @@ use goldsrc_rs::{
 use itertools::Itertools;
 use std::{
     collections::{HashMap, HashSet},
-    iter::{Iterator, once},
+    iter::{once, Iterator},
 };
 use tracing::{debug, info};
 
@@ -80,7 +79,7 @@ pub struct Map {
 }
 
 impl Map {
-    pub fn new<F: ?Sized + Facade>(facade: &F, bsp: &Level) -> Self {
+    pub fn new(display: &Display, bsp: &Level) -> Self {
         let root_model = &bsp.models[0];
 
         let origin = root_model.origin;
@@ -115,7 +114,7 @@ impl Map {
                 if texture.data.is_some() && !loaded_textures.contains_key(&tex_name) {
                     let (elapsed, ()) = measure_time(|| {
                         loaded_textures
-                            .insert(tex_name.clone(), Self::upload_miptex(facade, texture));
+                            .insert(tex_name.clone(), Self::upload_miptex(display, texture));
                     });
                     debug!("Load intern miptex `{}` in {}", &tex_name, elapsed);
                 }
@@ -192,20 +191,20 @@ impl Map {
                 debug!("{} triangles using `{}` miptex", indices.len() / 3, &k);
                 (
                     k,
-                    IndexBuffer::new(facade, PrimitiveType::TrianglesList, &indices)
+                    IndexBuffer::new(display, PrimitiveType::TrianglesList, &indices)
                         .unwrap()
                         .into(),
                 )
             })
             .collect();
 
-        let vbo = VertexBuffer::new(facade, &vbo_vertices).unwrap().into();
+        let vbo = VertexBuffer::new(display, &vbo_vertices).unwrap().into();
 
         let (elapsed, program) = measure_time(|| {
-            program!(facade,
+            program!(display,
                 140 => {
-                    vertex: include_str!("../shaders/map/vert.glsl"),
-                    fragment: include_str!("../shaders/map/frag.glsl"),
+                    vertex: include_str!("shaders/map/vert.glsl"),
+                    fragment: include_str!("shaders/map/frag.glsl"),
                 },
             )
             .unwrap()
@@ -224,7 +223,7 @@ impl Map {
                     }
                 })
                 .collect_vec();
-            BufferTexture::persistent(facade, &lightmap, BufferTextureType::Float).unwrap()
+            BufferTexture::persistent(display, &lightmap, BufferTextureType::Float).unwrap()
         });
         debug!("Lightmap was loaded in {}", elapsed);
 
@@ -245,9 +244,9 @@ impl Map {
         }
     }
 
-    fn upload_miptex<F: ?Sized + Facade>(facade: &F, miptex: &MipTexture) -> Texture2d {
+    fn upload_miptex(display: &Display, miptex: &MipTexture) -> Texture2d {
         let texture = Texture2d::empty_with_mipmaps(
-            facade,
+            display,
             MipmapsOption::EmptyMipmapsMax(3 as u32),
             miptex.width,
             miptex.height,
@@ -274,7 +273,7 @@ impl Map {
         self.textured_ibos.len() == self.textures.len()
     }
 
-    pub fn load_from_archive<F: ?Sized + Facade>(&mut self, facade: &F, archive: &Archive) {
+    pub fn load_from_archive(&mut self, display: &Display, archive: &Archive) {
         let present: HashSet<_> = self.textures.keys().cloned().collect();
         let required: HashSet<_> = self.textured_ibos.keys().cloned().collect();
         let loaded = required.difference(&present).cloned().filter_map(|name| {
@@ -283,7 +282,7 @@ impl Map {
                     .get(&SmolStr::new_inline(&name.to_ascii_uppercase()))
                     .or_else(|| archive.get(&SmolStr::new_inline(&name.to_ascii_lowercase())))?;
                 if let &Content::MipTexture(mip_texture) = &entry {
-                    Some(Self::upload_miptex(facade, &mip_texture))
+                    Some(Self::upload_miptex(display, &mip_texture))
                 } else {
                     None
                 }

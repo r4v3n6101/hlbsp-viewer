@@ -17,7 +17,7 @@ use {
 
 pub struct Level {
     start_point: Option<Vec3>,
-    map_render: Map,
+    map: Map,
     skybox: Option<Skybox>,
 }
 
@@ -26,16 +26,16 @@ impl Level {
         let bsp_file = fs::read(&args.bsp_path)?;
         let reader = Cursor::new(bsp_file);
         let bsp = goldsrc_rs::bsp(reader)?;
-        let mut map_render = Map::new(display, &bsp);
+        let mut map = Map::new(display, &bsp);
 
-        if !map_render.is_textures_loaded() {
+        if !map.is_textures_loaded() {
             let file = fs::read(&args.wad_path)?;
             let reader = Cursor::new(file);
             let archive = goldsrc_rs::wad(reader)?;
             if let Some(file_name) = &args.wad_path.file_name() {
                 debug!("Scanning {:?} for textures", file_name);
             }
-            map_render.load_from_archive(display, &archive);
+            map.load_from_archive(display, &archive);
         }
 
         let info_player_start = find_info_player_start(&bsp.entities);
@@ -54,7 +54,7 @@ impl Level {
 
         Ok(Self {
             start_point,
-            map_render,
+            map,
             skybox,
         })
     }
@@ -73,6 +73,6 @@ impl Level {
         if let Some(skybox) = &self.skybox {
             skybox.render(frame, projection, view, draw_params);
         }
-        self.map_render.render(frame, projection, view, draw_params);
+        self.map.render(frame, projection, view, draw_params);
     }
 }

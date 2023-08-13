@@ -1,8 +1,9 @@
-use self::camera::Camera;
-use crate::{render::Level, Args};
+use self::{camera::Camera, level::Level};
+use crate::Args;
 use anyhow::Result;
 use glium::{Display, Surface, DrawParameters};
 
+mod level;
 mod camera;
 
 const CAMERA_OFFSET: f32 = 64.0;

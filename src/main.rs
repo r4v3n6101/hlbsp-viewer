@@ -1,5 +1,4 @@
 mod cubemap;
-mod render;
 mod state;
 
 use anyhow::Result;
@@ -52,7 +51,7 @@ fn ungrab_cursor(window: &glutin::window::Window) {
 fn start_window_loop(args: &Args) -> Result<()> {
     let event_loop = glutin::event_loop::EventLoop::new();
     let wb = glutin::window::WindowBuilder::new()
-        .with_title("hlbsp viewer")
+        .with_title("Half-Life BSP Viewer")
         .with_inner_size(glutin::dpi::LogicalSize::new(1024.0, 768.0));
     let cb = glutin::ContextBuilder::new();
 

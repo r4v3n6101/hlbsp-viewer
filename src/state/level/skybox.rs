@@ -1,8 +1,7 @@
-use elapsed::measure_time;
 use crate::cubemap::Cubemap as CubemapFile;
+use elapsed::measure_time;
 use glam::{Mat3, Mat4};
 use glium::{
-    backend::Facade,
     framebuffer::SimpleFrameBuffer,
     implement_vertex,
     index::{IndexBuffer, IndexBufferAny, PrimitiveType},
@@ -11,7 +10,7 @@ use glium::{
     uniform,
     uniforms::MagnifySamplerFilter,
     vertex::{VertexBuffer, VertexBufferAny},
-    BlitTarget, DrawParameters, Program, Surface, Frame,
+    BlitTarget, Display, DrawParameters, Frame, Program, Surface,
 };
 use tracing::debug;
 
@@ -119,15 +118,15 @@ pub struct Skybox {
 }
 
 impl Skybox {
-    pub fn new<F: ?Sized + Facade>(facade: &F, cubemap_file: &CubemapFile) -> Self {
-        let vbo = VertexBuffer::new(facade, &CUBE_VERTICES).unwrap();
-        let ibo = IndexBuffer::new(facade, PrimitiveType::TrianglesList, &CUBE_INDICES).unwrap();
+    pub fn new(display: &Display, cubemap_file: &CubemapFile) -> Self {
+        let vbo = VertexBuffer::new(display, &CUBE_VERTICES).unwrap();
+        let ibo = IndexBuffer::new(display, PrimitiveType::TrianglesList, &CUBE_INDICES).unwrap();
 
         let (elapsed, program) = measure_time(|| {
-            program!(facade,
+            program!(display,
                 140 => {
-                    vertex: include_str!("../shaders/skybox/vert.glsl"),
-                    fragment: include_str!("../shaders/skybox/frag.glsl"),
+                    vertex: include_str!("shaders/skybox/vert.glsl"),
+                    fragment: include_str!("shaders/skybox/frag.glsl"),
                 }
             )
             .unwrap()
@@ -137,7 +136,7 @@ impl Skybox {
         let dimension = cubemap_file.dimension;
         let sides = &cubemap_file.sides;
 
-        let cubemap = Cubemap::empty(facade, dimension).unwrap();
+        let cubemap = Cubemap::empty(display, dimension).unwrap();
         let blit_rect = BlitTarget {
             left: 0,
             bottom: 0,
@@ -149,9 +148,9 @@ impl Skybox {
             let (elapsed, ()) = measure_time(|| {
                 let i = side.get_layer_index();
                 let image = RawImage2d::from_raw_rgba(sides[i].clone(), (dimension, dimension)); // TODO : clone
-                let texture = Texture2d::new(facade, image).unwrap();
+                let texture = Texture2d::new(display, image).unwrap();
                 let target =
-                    SimpleFrameBuffer::new(facade, cubemap.main_level().image(*side)).unwrap();
+                    SimpleFrameBuffer::new(display, cubemap.main_level().image(*side)).unwrap();
                 texture.as_surface().blit_whole_color_to(
                     &target,
                     &blit_rect,
@@ -176,7 +175,11 @@ impl Skybox {
         view: Mat4,
         draw_params: &DrawParameters,
     ) {
-        let view = Mat3::from_cols(view.x_axis.truncate(), view.y_axis.truncate(), view.z_axis.truncate());
+        let view = Mat3::from_cols(
+            view.x_axis.truncate(),
+            view.y_axis.truncate(),
+            view.z_axis.truncate(),
+        );
         let view = Mat4::from_mat3(view);
         let mvp = projection * view;
         let mvp = mvp.to_cols_array_2d();
