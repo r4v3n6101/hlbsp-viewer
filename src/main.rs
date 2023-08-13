@@ -1,18 +1,12 @@
-mod render;
 mod cubemap;
+mod render;
 mod state;
 
+use anyhow::Result;
 use clap::Parser;
-use glium::{
-    glutin::{self, event::DeviceEvent},
-    Surface,
-};
+use glium::glutin::{self, event::DeviceEvent};
 use state::State;
 use std::path::PathBuf;
-use anyhow::Result;
-
-// Safe, because there's no multiple thread accessing this
-static mut MOUSE_GRABBED: bool = true;
 
 /// A program allows you to view hlbsp maps (bsp v30)
 #[derive(Parser, Debug)]
@@ -23,7 +17,7 @@ pub struct Args {
     pub bsp_path: PathBuf,
     /// Path to wad files which are required to load textures
     #[arg(short, long)]
-    pub wad_paths: Vec<PathBuf>,
+    pub wad_path: PathBuf,
     /// Path to directory stores skybox textures
     #[arg(short, long)]
     pub skybox_path: Option<PathBuf>,
@@ -92,15 +86,15 @@ fn start_window_loop(args: &Args) -> Result<()> {
                         if input.state == glutin::event::ElementState::Pressed {
                             if let Some(virt_keycode) = input.virtual_keycode {
                                 match virt_keycode {
-                                    glutin::event::VirtualKeyCode::G => unsafe {
-                                        if MOUSE_GRABBED {
+                                    glutin::event::VirtualKeyCode::G => {
+                                        if state.mouse_grabbed {
                                             ungrab_cursor(window);
-                                            MOUSE_GRABBED = false;
+                                            state.mouse_grabbed = false;
                                         } else {
                                             grab_cursor(window);
-                                            MOUSE_GRABBED = true;
+                                            state.mouse_grabbed = true;
                                         }
-                                    },
+                                    }
                                     glutin::event::VirtualKeyCode::Q => {
                                         *control_flow = glutin::event_loop::ControlFlow::Exit;
                                     }
@@ -125,22 +119,18 @@ fn start_window_loop(args: &Args) -> Result<()> {
             }
             glutin::event::Event::MainEventsCleared => window.request_redraw(),
             glutin::event::Event::RedrawRequested(window_id) if window.id() == window_id => {
-                let mut frame = display.draw();
-
-                frame.clear_color_and_depth((1.0, 1.0, 0.0, 1.0), 1.0);
-                state.render(&mut frame, &draw_params);
-                frame.finish().unwrap();
+                state.render(&display, &draw_params);
             }
             glutin::event::Event::DeviceEvent {
                 event: DeviceEvent::MouseMotion { delta },
                 ..
-            } => unsafe {
-                if MOUSE_GRABBED {
+            } => {
+                if state.mouse_grabbed {
                     state
                         .camera
                         .rotate_by((-delta.1 * 0.1) as f32, (delta.0 * 0.1) as f32, 0.0);
                 }
-            },
+            }
             _ => {
                 let next_frame_time =
                     std::time::Instant::now() + std::time::Duration::from_nanos(16_666_667);

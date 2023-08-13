@@ -7,7 +7,7 @@ use glium::{Display, DrawParameters, Frame};
 use std::{fs, io::Cursor};
 use tracing::{debug, error, info};
 
-use crate::{Args, cubemap::read_cubemap};
+use crate::{cubemap::read_cubemap, Args};
 use anyhow::Result;
 use {
     entities::{find_info_player_start, get_skyname, get_start_point, Vec3},
@@ -28,14 +28,11 @@ impl Level {
         let bsp = goldsrc_rs::bsp(reader)?;
         let mut map_render = Map::new(display, &bsp);
 
-        for path in &args.wad_paths {
-            if map_render.is_textures_loaded() {
-                break;
-            }
-            let file = fs::read(path)?;
+        if !map_render.is_textures_loaded() {
+            let file = fs::read(&args.wad_path)?;
             let reader = Cursor::new(file);
             let archive = goldsrc_rs::wad(reader)?;
-            if let Some(file_name) = &path.file_name() {
+            if let Some(file_name) = &args.wad_path.file_name() {
                 debug!("Scanning {:?} for textures", file_name);
             }
             map_render.load_from_archive(display, &archive);

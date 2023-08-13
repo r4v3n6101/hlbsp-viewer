@@ -1,34 +1,46 @@
 use self::camera::Camera;
 use crate::{render::Level, Args};
 use anyhow::Result;
-use glium::{Display, DrawParameters, Frame};
+use glium::{Display, Surface, DrawParameters};
 
 mod camera;
 
-const MOVE_SPEED: f32 = 100.0;
 const CAMERA_OFFSET: f32 = 64.0;
 
 pub struct State {
+    pub mouse_grabbed: bool,
     pub camera: Camera,
     level: Level,
 }
 
 impl State {
     pub fn new(display: &Display, args: &Args) -> Result<Self> {
-        let mut camera = Camera::new(1024.0, 768.0, 90.0f32.to_radians(), 1.0, 8192.0, MOVE_SPEED);
+        let mut camera = Camera::new(1024.0, 768.0, 90.0f32.to_radians(), 1.0, 8192.0, 100.0);
 
-        let level = Level::new(display, args)?;
+        let level = Level::new(&display, args)?;
         if let Some((x, y, z)) = level.start_point() {
             camera.set_position(x, y + CAMERA_OFFSET, z);
         }
 
-        Ok(Self { camera, level })
+        let mouse_grabbed = true;
+
+        Ok(Self {
+            mouse_grabbed,
+            camera,
+            level,
+        })
     }
 
-    pub fn render(&self, frame: &mut Frame, draw_params: &DrawParameters) {
+    pub fn render(&self, display: &Display, draw_params: &DrawParameters) {
+        let mut frame = display.draw();
+
+        frame.clear_color_and_depth((1.0, 1.0, 0.0, 1.0), 1.0);
+
         let projection = self.camera.perspective();
         let view = self.camera.view();
 
-        self.level.render(frame, projection, view, &draw_params);
+        self.level.render(&mut frame, projection, view, &draw_params);
+
+        frame.finish().unwrap();
     }
 }
