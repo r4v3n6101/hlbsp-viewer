@@ -1,5 +1,5 @@
-# hlbsp_viewer
-Program allows you to view hlbsp map
+# Half-Life BSP Viewer
+Program allows you to view v30 bsp
 
 ## Task list
 - [x] **map convertation**: Works fine.
