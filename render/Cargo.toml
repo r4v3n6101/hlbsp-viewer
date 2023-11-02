@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 file = { path = "../file/" }
-glium = "0.31.0"
+glium = "0.33.0"
 cgmath = "0.18.0"
 itertools = "0.11.0"
 elapsed = "0.1.2"
