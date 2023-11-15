@@ -8,6 +8,6 @@ edition = "2018"
 file = { path = "../file/" }
 glium = "0.31.0"
 cgmath = "0.18.0"
-itertools = "0.11.0"
+itertools = "0.12.0"
 elapsed = "0.1.2"
 log = "0.4.11"
