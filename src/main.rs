@@ -1,9 +1,12 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf, str::FromStr};
 
-use bevy::prelude::*;
-use bevy_egui::{EguiContext, EguiPlugin};
+use bevy::{asset::LoadState, prelude::*};
+use bevy_egui::{
+    egui::{load::SizedTexture, Align, Image as EImage, Layout, TextureId, Window},
+    EguiContexts, EguiPlugin,
+};
 use clap::Parser;
-use gs_files::{Bsp, GsFilesPlugin, Wad};
+use gs_files::{GsFilesPlugin, WadSourcePlugin};
 
 #[derive(Parser)]
 #[command(author, version, about)]
@@ -16,60 +19,48 @@ fn main() {
     let args = Args::parse();
 
     App::new()
-        .add_plugins(DefaultPlugins.set(AssetPlugin {
-            asset_folder: args.game,
-            ..default()
-        }))
-        .add_plugin(GsFilesPlugin)
-        .add_plugin(EguiPlugin)
-        .add_startup_system(load_map)
-        .add_system(display_wads)
+        .add_plugins((
+            WadSourcePlugin {
+                root_path: PathBuf::from_str("./valve").unwrap(),
+            },
+            DefaultPlugins.set(AssetPlugin {
+                mode: AssetMode::Unprocessed,
+                ..Default::default()
+            }),
+            GsFilesPlugin,
+            EguiPlugin,
+        ))
+        .add_systems(Startup, load_wad)
+        .add_systems(Update, display_wads)
         .run();
 }
 
-fn load_map(asset_server: Res<AssetServer>, maps: Res<Assets<Bsp>>) {
-    asset_server.load("maps/boot_camp.bsp").make_strong(&maps);
-}
+fn load_wad(asset_server: Res<AssetServer>, images: Res<Assets<Image>>) {}
 
 fn display_wads(
-    wads: Res<Assets<Wad>>,
+    images: Res<Assets<Image>>,
     asset_server: Res<AssetServer>,
-    mut egui_ctx: ResMut<EguiContext>,
-    mut cached_content: Local<HashMap<String, HashMap<String, egui::TextureId>>>,
+    mut egui_ctx: EguiContexts,
+    mut cached_content: Local<HashMap<String, TextureId>>,
 ) {
-    for (handle_id, wad) in wads.iter() {
-        let Some(asset_path) = asset_server.get_handle_path(handle_id) else {
-            error!("Unknown path for wad");
-            continue;
-        };
-
-        let wad_name = asset_path.path().to_string_lossy();
-        if !cached_content.contains_key(wad_name.as_ref()) {
-            cached_content.insert(
-                wad_name.to_string(),
-                wad.images
-                    .iter()
-                    .map(|(name, handle)| (name.to_string(), egui_ctx.add_image(handle.clone())))
-                    .collect(),
-            );
-        }
+    if !cached_content.contains_key("sky") {
+        cached_content.insert(
+            "sky".to_string(),
+            egui_ctx.add_image(asset_server.load::<Image>("wad://+0c1a4_swtch3.mip")),
+        );
     }
-    egui::Window::new("Wad debug")
+    Window::new("Wad debug")
         .scroll2([true, true])
         .resizable(true)
         .show(egui_ctx.ctx_mut(), |ui| {
-            cached_content.iter().for_each(|(wad_name, images)| {
-                ui.collapsing(wad_name, |ui| {
-                    ui.with_layout(
-                        egui::Layout::left_to_right(egui::Align::LEFT).with_main_wrap(true),
-                        |ui| {
-                            images.iter().for_each(|(name, img_id)| {
-                                ui.add(egui::Image::new(*img_id, [64.0, 64.0]))
-                                    .on_hover_text(name);
-                            });
-                        },
-                    );
-                });
-            });
+            ui.with_layout(
+                Layout::left_to_right(Align::LEFT).with_main_wrap(true),
+                |ui| {
+                    cached_content.iter().for_each(|(name, img_id)| {
+                        ui.add(EImage::new(SizedTexture::new(*img_id, [64.0, 64.0])))
+                            .on_hover_text(name);
+                    });
+                },
+            );
         });
 }

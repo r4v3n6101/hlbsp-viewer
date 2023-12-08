@@ -1,86 +1,97 @@
-use std::{collections::HashMap, io::Cursor};
+use std::io::{self, Cursor};
 
-use bevy_asset::{AssetLoader, Error, LoadContext, LoadedAsset};
-use bevy_log::warn;
+use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
 use bevy_render::{
     render_resource::{TextureDimension, TextureFormat},
     texture::Image,
 };
-use goldsrc_rs::{
-    texture::{ColourData, Font, MipTexture, Picture},
-    wad::Content,
-};
+use bevy_utils::BoxedFuture;
+use goldsrc_rs::texture::ColourData;
 
-use crate::types::Wad;
+#[derive(Default)]
+pub struct PicLoader;
 
-pub struct WadLoader;
+impl AssetLoader for PicLoader {
+    type Asset = Image;
+    type Settings = ();
+    type Error = io::Error;
 
-impl AssetLoader for WadLoader {
     fn load<'a>(
         &'a self,
-        bytes: &'a [u8],
-        load_context: &'a mut LoadContext,
-    ) -> bevy_asset::BoxedFuture<'a, Result<(), Error>> {
-        Box::pin(async move {
-            let contents = goldsrc_rs::wad(Cursor::new(bytes))?;
+        reader: &'a mut Reader,
+        _: &'a Self::Settings,
+        _: &'a mut LoadContext,
+    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
+        Box::pin(async {
+            let mut buf = Cursor::new(Vec::new());
+            reader.read_to_end(buf.get_mut()).await?;
 
-            let mut images = HashMap::with_capacity(contents.len());
-            for (name, content) in contents {
-                match content {
-                    Content::Picture(Picture {
-                        width,
-                        height,
-                        data,
-                    }) => {
-                        // TODO : temporary solution
-                        images.insert(
-                            name.to_string(),
-                            load_context.set_labeled_asset(
-                                &name,
-                                LoadedAsset::new(convert_to_image(width, height, &data)),
-                            ),
-                        );
-                    }
-                    Content::MipTexture(MipTexture {
-                        width,
-                        height,
-                        data,
-                        name,
-                    }) => {
-                        let Some(data) = data else {
-                            warn!(?name, "Empty MipTexture");
-                            continue;
-                        };
-
-                        images.insert(
-                            name.to_string(),
-                            load_context.set_labeled_asset(
-                                &name,
-                                LoadedAsset::new(convert_to_image(width, height, &data)),
-                            ),
-                        );
-                    }
-                    Content::Font(Font { .. }) => {
-                        // TODO : load font as font, not picture
-                        warn!("Fonts no supported yet");
-                        continue;
-                    }
-                    Content::Other { ty, .. } => {
-                        warn!(ty, "Unsupported content type");
-                        continue;
-                    }
-                    _ => unreachable!(),
-                };
-            }
-
-            load_context.set_default_asset(LoadedAsset::new(Wad { images }));
-
-            Ok(())
+            let pic = goldsrc_rs::pic(&mut buf)?;
+            Ok(convert_to_image(pic.width, pic.height, &pic.data))
         })
     }
 
     fn extensions(&self) -> &[&str] {
-        &["wad"]
+        &["pic"]
+    }
+}
+
+#[derive(Default)]
+pub struct MipTexLoader;
+
+impl AssetLoader for MipTexLoader {
+    type Asset = Image;
+    type Settings = ();
+    type Error = io::Error;
+
+    fn load<'a>(
+        &'a self,
+        reader: &'a mut Reader,
+        _: &'a Self::Settings,
+        _: &'a mut LoadContext,
+    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
+        Box::pin(async {
+            let mut buf = Cursor::new(Vec::new());
+            reader.read_to_end(buf.get_mut()).await?;
+
+            let miptex = goldsrc_rs::miptex(&mut buf)?;
+            Ok(match miptex.data {
+                Some(data) => convert_to_image(miptex.width, miptex.height, &data),
+                None => Image::default(),
+            })
+        })
+    }
+
+    fn extensions(&self) -> &[&str] {
+        &["mip"]
+    }
+}
+
+#[derive(Default)]
+pub struct FontLoader;
+
+impl AssetLoader for FontLoader {
+    type Asset = Image;
+    type Settings = ();
+    type Error = io::Error;
+
+    fn load<'a>(
+        &'a self,
+        reader: &'a mut Reader,
+        _: &'a Self::Settings,
+        _: &'a mut LoadContext,
+    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
+        Box::pin(async {
+            let mut buf = Cursor::new(Vec::new());
+            reader.read_to_end(buf.get_mut()).await?;
+
+            let font = goldsrc_rs::font(&mut buf)?;
+            Ok(convert_to_image(font.width, font.height, &font.data))
+        })
+    }
+
+    fn extensions(&self) -> &[&str] {
+        &["fnt"]
     }
 }
 

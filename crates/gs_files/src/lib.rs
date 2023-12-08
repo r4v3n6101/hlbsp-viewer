@@ -1,17 +1,36 @@
+use std::path::PathBuf;
+
 use bevy_app::{App, Plugin};
-use bevy_asset::AddAsset;
+use bevy_asset::{
+    io::{AssetSource, AssetSourceId},
+    AssetApp,
+};
+use io::wad::WadAssetReader;
+use loaders::wad::{FontLoader, MipTexLoader, PicLoader};
 
-pub use types::{Bsp, Wad};
-
+mod io;
 mod loaders;
-mod types;
+
+pub struct WadSourcePlugin {
+    pub root_path: PathBuf,
+}
+
+impl Plugin for WadSourcePlugin {
+    fn build(&self, app: &mut App) {
+        let root_path = self.root_path.clone();
+        app.register_asset_source(
+            AssetSourceId::new(Some("wad")),
+            AssetSource::build().with_reader(move || Box::new(WadAssetReader::new(&root_path))),
+        );
+    }
+}
 
 pub struct GsFilesPlugin;
 
 impl Plugin for GsFilesPlugin {
     fn build(&self, app: &mut App) {
-        // TODO : needed for client only, yep?
-        app.add_asset::<Wad>().add_asset_loader(loaders::WadLoader);
-        app.add_asset::<Bsp>().add_asset_loader(loaders::BspLoader);
+        app.init_asset_loader::<PicLoader>()
+            .init_asset_loader::<MipTexLoader>()
+            .init_asset_loader::<FontLoader>();
     }
 }
